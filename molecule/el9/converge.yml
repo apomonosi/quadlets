@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Include | quadlets role
+      ansible.builtin.include_role:
+        name: "quadlets"
+#      vars:
+#        sso_type: "nginx"
+#        sso_profile: "quadlet"
+...

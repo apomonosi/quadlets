@@ -1,0 +1,37 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+
+    - name: Backup all rocky repo files first
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ item }}.bak"
+        remote_src: yes
+      loop: "{{ lookup('fileglob', '/etc/yum.repos.d/rocky-*.repo', wantlist=True) }}"
+      #when: backup_repos | default(true) | bool
+
+    - name: Modify all rocky repo files using fileglob
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: |
+          ({{ '
+          ' }}^mirrorlist=)
+          ({{ '
+          ' }}^#baseurl=)
+          ({{ '
+          ' }}dl\.rockylinux\.org\/\$contentdir)
+        replace: |
+          \1#mirrorlist=
+          \2baseurl=
+          \3mirror.fysik.dtu.dk/linux/rockylinux
+        backrefs: yes
+      loop: "{{ lookup('fileglob', '/etc/yum.repos.d/rocky-*.repo', wantlist=True) }}"
+
+    - name: Add | epel repo
+      ansible.builtin.package:
+        name: epel-release
+        state: present
+      become: true
+...

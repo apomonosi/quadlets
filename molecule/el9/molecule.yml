@@ -1,0 +1,24 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+  provision: true
+  parallel: false
+platforms:
+  - name: quadlet.el9
+    box: rockylinux/9.6
+    instance_raw_config_args:
+      - "vm.provision :shell, inline: \"echo #{Dir.pwd} > /tmp/workdir\""
+    provider_raw_config_args:
+      - "loader = \"/usr/share/OVMF/OVMF_CODE.fd\""
+      - "video_type = \"virtio\""
+    cpus: 2
+    memory: "2048"
+provisioner:
+  name: ansible
+verifier:
+  name: ansible
+...

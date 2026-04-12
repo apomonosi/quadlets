@@ -234,8 +234,8 @@ None. Required Ansible collections are in `requirements.yml`.
 
 ## License
 
-GPL-2.0-or-later
+MIT
 
 ## Author Information
 
-Lars Melwyn Jensen
+L. M. Jensen (melwyn@dtu.dk)

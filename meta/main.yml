@@ -1,15 +1,22 @@
 ---
 galaxy_info:
-  author: Lars Melwyn Jensen
+  author: L. M. Jensen
   description: >
     Deploy rootless Podman quadlet services behind nginx-proxy
     with pocket-id OIDC/SSO on RHEL/CentOS Stream 9+
-  license: GPL-2.0-or-later
-  min_ansible_version: "2.15"
+  company: DTU, Risø
+  license: MIT
+  min_ansible_version: "9.4"
+  role_name: quadlets
+  namespace: rithpc
   platforms:
     - name: EL
       versions:
         - "9"
+        - "10"
+    - name: Fedora
+      versions:
+        - "43"
   galaxy_tags:
     - podman
     - quadlet
@@ -20,3 +27,4 @@ galaxy_info:
     - systemd
 
 dependencies: []
+...
