@@ -1,0 +1,42 @@
+---
+# tasks/certificates.yml — Dispatch TLS certificate provisioning per virtual host
+
+# pocket-id certificate
+- name: Certificates | Provision pocket-id certificate via mkcert
+  ansible.builtin.include_tasks: cert_mkcert.yml
+  vars:
+    _cert_virtual_host: "{{ quadlets_pocket_id_virtual_host }}"
+  when:
+    - quadlets_pocket_id_enabled | bool
+    - quadlets_cert_mode == "mkcert"
+
+- name: Certificates | Copy pocket-id BYO certificate
+  ansible.builtin.include_tasks: cert_byo.yml
+  vars:
+    _cert_virtual_host: "{{ quadlets_pocket_id_virtual_host }}"
+    _byo_cert_src: "{{ quadlets_byo_cert_src }}"
+    _byo_key_src: "{{ quadlets_byo_key_src }}"
+  when:
+    - quadlets_pocket_id_enabled | bool
+    - quadlets_cert_mode == "byo"
+
+# Per-service certificates
+- name: Certificates | Provision service certificate via mkcert
+  ansible.builtin.include_tasks: cert_mkcert.yml
+  vars:
+    _cert_virtual_host: "{{ item.virtual_host }}"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.virtual_host }}"
+  when: "(item.cert_mode | default(quadlets_cert_mode)) == 'mkcert'"
+
+- name: Certificates | Copy service BYO certificate
+  ansible.builtin.include_tasks: cert_byo.yml
+  vars:
+    _cert_virtual_host: "{{ item.virtual_host }}"
+    _byo_cert_src: "{{ item.byo_cert_src | default(quadlets_byo_cert_src) }}"
+    _byo_key_src: "{{ item.byo_key_src | default(quadlets_byo_key_src) }}"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.virtual_host }}"
+  when: "(item.cert_mode | default(quadlets_cert_mode)) == 'byo'"

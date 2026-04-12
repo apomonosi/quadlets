@@ -1,0 +1,93 @@
+---
+# tasks/pocket_id_bootstrap.yml — First-run pocket-id admin account + API token setup
+#
+# Usage: ansible-playbook site.yml --tags pocket_id_bootstrap
+#
+# After running this task, save the printed API token to your Ansible Vault as
+# quadlets_pocket_id_api_key. The bootstrap only needs to run once.
+
+- name: bootstrap | Assert admin credentials are provided
+  ansible.builtin.assert:
+    that:
+      - quadlets_pocket_id_admin_email | length > 0
+      - quadlets_pocket_id_admin_password | length > 0
+    fail_msg: >
+      quadlets_pocket_id_admin_email and quadlets_pocket_id_admin_password
+      must be set to bootstrap pocket-id. Store the password in Ansible Vault.
+
+- name: bootstrap | Wait for pocket-id to become reachable
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/healthz"
+    method: GET
+    status_code: [200, 204, 404]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _pocket_id_health
+  until: _pocket_id_health.status in [200, 204, 404]
+  retries: 30
+  delay: 5
+
+- name: bootstrap | Check if setup has already been completed
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/auth/setup"
+    method: GET
+    status_code: [200, 400]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _pocket_id_setup_check
+  failed_when: false
+
+- name: bootstrap | Create admin user (first-run only)
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/auth/setup"
+    method: POST
+    body_format: json
+    body:
+      email: "{{ quadlets_pocket_id_admin_email }}"
+      password: "{{ quadlets_pocket_id_admin_password }}"
+      firstName: "{{ quadlets_pocket_id_admin_first_name }}"
+      lastName: "{{ quadlets_pocket_id_admin_last_name }}"
+    status_code: [200, 201]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  when: _pocket_id_setup_check.status | default(0) == 200
+  register: _pocket_id_setup
+
+- name: bootstrap | Sign in to obtain access token
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/auth/sign-in"
+    method: POST
+    body_format: json
+    body:
+      email: "{{ quadlets_pocket_id_admin_email }}"
+      password: "{{ quadlets_pocket_id_admin_password }}"
+    status_code: [200]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _pocket_id_signin
+  no_log: true
+
+- name: bootstrap | Create a persistent API token for Ansible automation
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/api-tokens"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ _pocket_id_signin.json.token }}"
+    body:
+      name: "ansible-automation"
+      description: "API token for Ansible role automation"
+    status_code: [200, 201]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _pocket_id_api_token
+  no_log: true
+
+- name: bootstrap | Display API token (store in Ansible Vault!)
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      pocket-id API token created successfully.
+
+      Save the following as quadlets_pocket_id_api_key in your vault:
+
+        {{ _pocket_id_api_token.json.token
+           | default(_pocket_id_api_token.json.key)
+           | default('Check _pocket_id_api_token.json for the token field') }}
+
+      ============================================================

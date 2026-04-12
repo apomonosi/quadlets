@@ -1,0 +1,38 @@
+# Managed by Ansible — do not edit manually
+# Role: quadlets | Service: pocket-id
+# https://pocket-id.org
+
+[Unit]
+Description=Pocket ID — OIDC provider and SSO frontend
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{ quadlets_pocket_id_image }}
+ContainerName=pocket-id
+AutoUpdate=registry
+
+Network={{ quadlets_network_name }}.network
+
+# nginx-proxy virtual host routing
+Environment=VIRTUAL_HOST={{ quadlets_pocket_id_virtual_host }}
+Environment=VIRTUAL_PORT=1411
+Environment=VIRTUAL_PROTO=http
+
+# pocket-id application configuration
+Environment=APP_URL={{ quadlets_pocket_id_issuer_url }}
+Environment=TRUST_PROXY=true
+
+{% for key, value in quadlets_pocket_id_extra_env.items() %}
+Environment={{ key }}={{ value }}
+{% endfor %}
+
+# Persistent data volume (SQLite database, uploaded files, config)
+Volume={{ _quadlets_pocket_id_data_dir }}:/app/data:z
+
+[Service]
+Restart=always
+TimeoutStartSec=60
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,22 @@
+---
+# tasks/lingering.yml — Enable systemd user lingering so units survive logout
+
+- name: Linger | Check current linger status for {{ quadlets_user }}
+  ansible.builtin.command:
+    cmd: "loginctl show-user {{ quadlets_user }} -p Linger"
+  register: _linger_status
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Linger | Enable lingering for {{ quadlets_user }}
+  ansible.builtin.command:
+    cmd: "loginctl enable-linger {{ quadlets_user }}"
+  when: "_linger_status.stdout is not search('Linger=yes')"
+  become: true
+
+- name: Linger | Wait for user runtime directory to become available
+  ansible.builtin.wait_for:
+    path: "/run/user/{{ quadlets_uid }}"
+    state: present
+    timeout: 30

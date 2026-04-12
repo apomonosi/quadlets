@@ -1,0 +1,12 @@
+---
+# tasks/network.yml — Deploy shared Podman network quadlet
+
+- name: Network | Template proxy-net.network quadlet unit
+  ansible.builtin.template:
+    src: quadlet/proxy-net.network.j2
+    dest: "{{ _quadlets_systemd_dir }}/proxy-net.network"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true
+  notify: reload user systemd daemon

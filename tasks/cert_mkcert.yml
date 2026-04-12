@@ -1,0 +1,51 @@
+---
+# tasks/cert_mkcert.yml — Generate a locally-trusted cert with mkcert
+# Input variables: _cert_virtual_host
+
+- name: mkcert | Check if binary is already installed
+  ansible.builtin.stat:
+    path: "{{ quadlets_mkcert_install_dir }}/mkcert"
+  register: _mkcert_stat
+
+- name: mkcert | Resolve system architecture label
+  ansible.builtin.set_fact:
+    _mkcert_arch: >-
+      {{ 'amd64' if ansible_architecture == 'x86_64'
+         else 'arm64' if ansible_architecture == 'aarch64'
+         else ansible_architecture }}
+
+- name: mkcert | Download mkcert binary
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/FiloSottile/mkcert/releases/download/{{ quadlets_mkcert_version
+      }}/mkcert-{{ quadlets_mkcert_version }}-linux-{{ _mkcert_arch }}
+    dest: "{{ quadlets_mkcert_install_dir }}/mkcert"
+    mode: "0755"
+  become: true
+  when: not _mkcert_stat.stat.exists
+
+- name: mkcert | Install local CA into system trust store
+  ansible.builtin.command:
+    cmd: "{{ quadlets_mkcert_install_dir }}/mkcert -install"
+  environment:
+    HOME: "/home/{{ quadlets_user }}"
+    CAROOT: "/home/{{ quadlets_user }}/.local/share/mkcert"
+  become: true
+  become_user: "{{ quadlets_user }}"
+  changed_when: false
+
+- name: "mkcert | Generate certificate for {{ _cert_virtual_host }}"
+  ansible.builtin.command:
+    argv:
+      - "{{ quadlets_mkcert_install_dir }}/mkcert"
+      - "-cert-file"
+      - "{{ _quadlets_certs_dir }}/{{ _cert_virtual_host }}.crt"
+      - "-key-file"
+      - "{{ _quadlets_certs_dir }}/{{ _cert_virtual_host }}.key"
+      - "{{ _cert_virtual_host }}"
+    creates: "{{ _quadlets_certs_dir }}/{{ _cert_virtual_host }}.crt"
+  environment:
+    HOME: "/home/{{ quadlets_user }}"
+    CAROOT: "/home/{{ quadlets_user }}/.local/share/mkcert"
+  become: true
+  become_user: "{{ quadlets_user }}"

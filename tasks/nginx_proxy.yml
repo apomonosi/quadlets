@@ -1,0 +1,35 @@
+---
+# tasks/nginx_proxy.yml — Deploy the nginx-proxy reverse proxy quadlet
+
+- name: nginx-proxy | Template container unit file
+  ansible.builtin.template:
+    src: quadlet/nginx-proxy.container.j2
+    dest: "{{ _quadlets_systemd_dir }}/nginx-proxy.container"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true
+  notify:
+    - reload user systemd daemon
+    - restart nginx-proxy
+
+- name: nginx-proxy | Create conf.d directory for custom nginx snippets
+  ansible.builtin.file:
+    path: "{{ _quadlets_nginx_proxy_data_dir }}/conf.d"
+    state: directory
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0750"
+  become: true
+  when: quadlets_nginx_proxy_custom_conf | bool
+
+- name: nginx-proxy | Deploy custom nginx conf snippet
+  ansible.builtin.template:
+    src: nginx/custom.conf.j2
+    dest: "{{ _quadlets_nginx_proxy_data_dir }}/conf.d/custom.conf"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true
+  when: quadlets_nginx_proxy_custom_conf | bool
+  notify: restart nginx-proxy

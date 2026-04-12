@@ -1,0 +1,29 @@
+---
+# tasks/services.yml — Deploy per-service container quadlets
+
+- name: Services | Create data directory for each service
+  ansible.builtin.file:
+    path: "{{ _quadlets_data_base_dir }}/{{ item.name }}"
+    state: directory
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0750"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  become: true
+
+- name: Services | Template container unit file for each service
+  ansible.builtin.template:
+    src: quadlet/service.container.j2
+    dest: "{{ _quadlets_systemd_dir }}/{{ item.name }}.container"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  become: true
+  notify:
+    - reload user systemd daemon
+    - restart quadlet services

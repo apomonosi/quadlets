@@ -1,0 +1,30 @@
+---
+# tasks/cert_byo.yml — Copy a pre-existing certificate pair from the controller
+# Input variables: _cert_virtual_host, _byo_cert_src, _byo_key_src
+
+- name: "BYO cert | Assert source paths are provided for {{ _cert_virtual_host }}"
+  ansible.builtin.assert:
+    that:
+      - _byo_cert_src | length > 0
+      - _byo_key_src | length > 0
+    fail_msg: >
+      byo_cert_src and byo_key_src must be set for {{ _cert_virtual_host }}
+      when cert_mode is 'byo'.
+
+- name: "BYO cert | Copy certificate for {{ _cert_virtual_host }}"
+  ansible.builtin.copy:
+    src: "{{ _byo_cert_src }}"
+    dest: "{{ _quadlets_certs_dir }}/{{ _cert_virtual_host }}.crt"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true
+
+- name: "BYO cert | Copy key for {{ _cert_virtual_host }}"
+  ansible.builtin.copy:
+    src: "{{ _byo_key_src }}"
+    dest: "{{ _quadlets_certs_dir }}/{{ _cert_virtual_host }}.key"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true

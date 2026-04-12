@@ -1,0 +1,43 @@
+# Managed by Ansible — do not edit manually
+# Role: quadlets | Service: nginx-proxy
+# https://github.com/nginx-proxy/nginx-proxy
+
+[Unit]
+Description=nginx-proxy — automatic reverse proxy with SSL termination
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image={{ quadlets_nginx_proxy_image }}
+ContainerName=nginx-proxy
+AutoUpdate=registry
+
+Network={{ quadlets_network_name }}.network
+
+# Expose HTTP and HTTPS to the host
+PublishPort={{ quadlets_nginx_proxy_http_port }}:80
+PublishPort={{ quadlets_nginx_proxy_https_port }}:443
+
+# Mount the rootless Podman socket so docker-gen can discover containers.
+# The socket is exposed as /tmp/docker.sock; DOCKER_HOST tells docker-gen to use it.
+Volume={{ _podman_socket_path }}:/tmp/docker.sock:ro,z
+
+# TLS certificates directory. nginx-proxy expects <VIRTUAL_HOST>.crt and .key files.
+Volume={{ _quadlets_certs_dir }}:/etc/nginx/certs:ro,z
+
+{% if quadlets_nginx_proxy_custom_conf %}
+# Custom nginx configuration snippets
+Volume={{ _quadlets_nginx_proxy_data_dir }}/conf.d:/etc/nginx/conf.d:z
+{% endif %}
+
+Environment=DOCKER_HOST=unix:///tmp/docker.sock
+{% for key, value in quadlets_nginx_proxy_extra_env.items() %}
+Environment={{ key }}={{ value }}
+{% endfor %}
+
+[Service]
+Restart=always
+TimeoutStartSec=30
+
+[Install]
+WantedBy=default.target

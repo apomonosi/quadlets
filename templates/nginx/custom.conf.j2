@@ -1,0 +1,14 @@
+# Managed by Ansible — do not edit manually
+# Custom nginx configuration snippet for nginx-proxy.
+# This file is deployed to /etc/nginx/conf.d/custom.conf inside the container
+# when quadlets_nginx_proxy_custom_conf: true.
+#
+# Add any global nginx directives here (e.g. client_max_body_size, proxy timeouts).
+
+# Example: increase max upload size for Nextcloud / Immich
+# client_max_body_size 10g;
+
+# Example: longer proxy timeouts for slow backends
+# proxy_connect_timeout 600;
+# proxy_send_timeout    600;
+# proxy_read_timeout    600;

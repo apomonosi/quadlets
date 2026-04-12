@@ -1,5 +1,40 @@
 ---
+# Example test playbook for the quadlets role.
+# Deploys the full stack with mkcert certificates and a sample Grafana service.
+#
+# Usage:
+#   ansible-playbook tests/test.yml -i tests/inventory
+#
+# For production, create a proper inventory and group_vars instead.
+
 - hosts: localhost
   remote_user: root
+  vars:
+    quadlets_user: podman
+    quadlets_pocket_id_virtual_host: sso.test.local
+    quadlets_cert_mode: mkcert
+
+    quadlets_services:
+      - name: grafana
+        image: grafana/grafana:latest
+        virtual_host: grafana.test.local
+        port: 3000
+        oidc_client_id: grafana
+        oidc_client_secret: changeme
+        pocket_id_group: grafana_users
+        callback_urls:
+          - "https://grafana.test.local/login/generic_oauth"
+        env:
+          GF_SERVER_ROOT_URL: "https://grafana.test.local"
+          GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+          GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
+          GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
+          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: changeme
+          GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
+          GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.test.local/authorize"
+          GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.test.local/api/oidc/token"
+          GF_AUTH_GENERIC_OAUTH_API_URL: "https://sso.test.local/api/oidc/userinfo"
+          GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
+
   roles:
-    - quadlets
+    - role: "{{ playbook_dir }}/.."

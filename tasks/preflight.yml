@@ -1,0 +1,85 @@
+---
+# tasks/preflight.yml — Pre-flight checks, UID detection, and directory setup
+
+- name: Preflight | Detect UID for quadlets_user
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ quadlets_user }}"
+  register: _quadlets_getent
+  become: true
+
+- name: Preflight | Set quadlets_uid from passwd entry
+  ansible.builtin.set_fact:
+    quadlets_uid: "{{ _quadlets_getent.ansible_facts.getent_passwd[quadlets_user][1] }}"
+  when: quadlets_uid == ""
+
+- name: Preflight | Compute derived path facts
+  ansible.builtin.set_fact:
+    _quadlets_runtime_dir: "/run/user/{{ quadlets_uid }}"
+    _quadlets_systemd_dir: >-
+      {{ quadlets_systemd_dir if quadlets_systemd_dir != ''
+         else '/home/' + quadlets_user + '/.config/containers/systemd' }}
+    _quadlets_certs_dir: >-
+      {{ quadlets_certs_dir if quadlets_certs_dir != ''
+         else '/home/' + quadlets_user + '/.config/containers/certs' }}
+    _quadlets_data_base_dir: >-
+      {{ quadlets_data_base_dir if quadlets_data_base_dir != ''
+         else '/home/' + quadlets_user + '/.local/share' }}
+
+- name: Preflight | Set socket and data directory facts
+  ansible.builtin.set_fact:
+    _podman_socket_path: "/run/user/{{ quadlets_uid }}/podman/podman.sock"
+    _quadlets_pocket_id_data_dir: "{{ _quadlets_data_base_dir }}/pocket-id"
+    _quadlets_nginx_proxy_data_dir: "{{ _quadlets_data_base_dir }}/nginx-proxy"
+
+- name: Preflight | Validate required fields on each service entry
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.image is defined
+      - item.virtual_host is defined
+      - item.port is defined
+    fail_msg: >
+      Service entry missing required fields (name, image, virtual_host, port):
+      {{ item | to_json }}
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: Preflight | Create quadlet systemd unit directory
+  ansible.builtin.file:
+    path: "{{ _quadlets_systemd_dir }}"
+    state: directory
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0750"
+  become: true
+
+- name: Preflight | Create TLS certificates directory
+  ansible.builtin.file:
+    path: "{{ _quadlets_certs_dir }}"
+    state: directory
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0750"
+  become: true
+
+- name: Preflight | Create pocket-id data directory
+  ansible.builtin.file:
+    path: "{{ _quadlets_pocket_id_data_dir }}"
+    state: directory
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0750"
+  become: true
+  when: quadlets_pocket_id_enabled | bool
+
+- name: Preflight | Create nginx-proxy data directory
+  ansible.builtin.file:
+    path: "{{ _quadlets_nginx_proxy_data_dir }}"
+    state: directory
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0750"
+  become: true
+  when: quadlets_nginx_proxy_enabled | bool

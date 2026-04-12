@@ -1,2 +1,49 @@
 ---
 # handlers file for quadlets
+
+- name: Reload user systemd daemon
+  ansible.builtin.command:
+    cmd: systemctl --user daemon-reload
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  listen: reload user systemd daemon
+
+- name: Restart nginx-proxy
+  ansible.builtin.systemd:
+    name: nginx-proxy.service
+    state: restarted
+    scope: user
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  listen: restart nginx-proxy
+
+- name: Restart pocket-id
+  ansible.builtin.systemd:
+    name: pocket-id.service
+    state: restarted
+    scope: user
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  listen: restart pocket-id
+
+- name: Restart quadlet services
+  ansible.builtin.systemd:
+    name: "{{ item }}.service"
+    state: restarted
+    scope: user
+  loop: "{{ quadlets_services | map(attribute='name') | list }}"
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  listen: restart quadlet services

@@ -1,0 +1,44 @@
+---
+# tasks/systemd_reload.yml — Flush handlers and ensure all units are running
+
+- name: Systemd | Flush all pending handlers before starting services
+  ansible.builtin.meta: flush_handlers
+
+- name: Systemd | Ensure nginx-proxy service is started
+  ansible.builtin.systemd:
+    name: nginx-proxy.service
+    state: started
+    scope: user
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  when: quadlets_nginx_proxy_enabled | bool
+
+- name: Systemd | Ensure pocket-id service is started
+  ansible.builtin.systemd:
+    name: pocket-id.service
+    state: started
+    scope: user
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  when: quadlets_pocket_id_enabled | bool
+
+- name: Systemd | Ensure each quadlet service is started
+  ansible.builtin.systemd:
+    name: "{{ item.name }}.service"
+    state: started
+    scope: user
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+  when: quadlets_services | length > 0

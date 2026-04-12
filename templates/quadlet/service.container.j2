@@ -1,0 +1,61 @@
+# Managed by Ansible — do not edit manually
+# Role: quadlets | Service: {{ item.name }}
+
+[Unit]
+Description=Quadlet service: {{ item.name }}
+After=network-online.target{% if quadlets_pocket_id_enabled %} pocket-id.service{% endif +%}
+Wants=network-online.target
+{% if item.depends_on | default([]) | length > 0 %}
+After={{ item.depends_on | map('regex_replace', '$', '.service') | join(' ') }}
+Requires={{ item.depends_on | map('regex_replace', '$', '.service') | join(' ') }}
+{% endif %}
+
+[Container]
+Image={{ item.image }}
+ContainerName={{ item.name }}
+AutoUpdate=registry
+
+Network={{ quadlets_network_name }}.network
+
+# nginx-proxy virtual host routing — docker-gen reads VIRTUAL_HOST to build upstreams
+Environment=VIRTUAL_HOST={{ item.virtual_host }}
+Environment=VIRTUAL_PORT={{ item.port }}
+
+{% if item.oidc_client_id is defined %}
+# pocket-id OIDC credentials
+Environment=OIDC_CLIENT_ID={{ item.oidc_client_id }}
+{% endif %}
+{% if item.oidc_client_secret is defined %}
+Environment=OIDC_CLIENT_SECRET={{ item.oidc_client_secret }}
+{% endif %}
+{% if item.oidc_issuer_url is defined or quadlets_pocket_id_enabled %}
+Environment=OIDC_ISSUER_URL={{ item.oidc_issuer_url | default(quadlets_pocket_id_issuer_url) }}
+{% endif %}
+
+{% if item.env | default({}) | length > 0 %}
+# Service-specific environment variables
+{% for key, value in item.env.items() %}
+Environment={{ key }}={{ value }}
+{% endfor %}
+{% endif %}
+
+{% if item.volumes | default([]) | length > 0 %}
+# Volumes
+{% for vol in item.volumes %}
+Volume={{ vol }}
+{% endfor %}
+{% endif %}
+
+{% if item.extra_labels | default({}) | length > 0 %}
+# Additional labels
+{% for key, value in item.extra_labels.items() %}
+Label={{ key }}={{ value }}
+{% endfor %}
+{% endif %}
+
+[Service]
+Restart=always
+TimeoutStartSec=60
+
+[Install]
+WantedBy=default.target

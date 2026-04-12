@@ -1,10 +1,19 @@
 ---
 # vars file for quadlets
+# Internal variables — do not override in host_vars or group_vars.
 
-__quadlets_packages:
+# Packages installed on RHEL/CentOS Stream targets.
+__quadlets_packages_redhat:
+  - podman
+  - openssl
+  - curl
   - rsyslog
   - setroubleshoot-server
-  - telnet
+  - policycoreutils-python-utils
+  - container-selinux
   - net-tools
+  - bind-utils
 
-...
+# SELinux booleans required for rootless container networking on RHEL.
+__quadlets_sebooleans:
+  - container_manage_cgroup

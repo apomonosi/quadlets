@@ -1,12 +1,78 @@
 ---
 # tasks file for quadlets
 
-- name: Check | quadlets_ variables are defined
-  ansible.builtin.assert:
-    that:
-      - quadlets_type is defined
-      - quadlets_profile is defined
-    fail_msg: "'quadlets_type' must be defined"
-    success_msg: "quadlets_type | quadlets_type "
+- name: Include OS-specific setup
+  ansible.builtin.include_tasks: redhat.yml
+  when: ansible_os_family == "RedHat"
+  tags: always
 
-...
+- name: Preflight checks and directory setup
+  ansible.builtin.include_tasks: preflight.yml
+  tags: always
+
+- name: Enable systemd user lingering
+  ansible.builtin.include_tasks: lingering.yml
+  tags:
+    - infrastructure
+    - lingering
+
+- name: Enable rootless Podman socket
+  ansible.builtin.include_tasks: podman_socket.yml
+  tags:
+    - infrastructure
+    - podman_socket
+
+- name: Deploy shared proxy network quadlet
+  ansible.builtin.include_tasks: network.yml
+  tags:
+    - infrastructure
+    - network
+
+- name: Provision TLS certificates
+  ansible.builtin.include_tasks: certificates.yml
+  tags:
+    - infrastructure
+    - certificates
+
+- name: Deploy nginx-proxy quadlet
+  ansible.builtin.include_tasks: nginx_proxy.yml
+  when: quadlets_nginx_proxy_enabled | bool
+  tags:
+    - infrastructure
+    - nginx_proxy
+
+- name: Deploy pocket-id quadlet
+  ansible.builtin.include_tasks: pocket_id.yml
+  when: quadlets_pocket_id_enabled | bool
+  tags:
+    - infrastructure
+    - pocket_id
+
+- name: Bootstrap pocket-id admin account
+  ansible.builtin.include_tasks: pocket_id_bootstrap.yml
+  when:
+    - quadlets_pocket_id_enabled | bool
+    - quadlets_pocket_id_bootstrap | bool
+  tags:
+    - never
+    - pocket_id_bootstrap
+
+- name: Register OIDC clients in pocket-id
+  ansible.builtin.include_tasks: pocket_id_clients.yml
+  when:
+    - quadlets_pocket_id_enabled | bool
+    - quadlets_pocket_id_provision_clients | bool
+    - quadlets_pocket_id_api_key | length > 0
+  tags:
+    - never
+    - pocket_id_clients
+
+- name: Deploy service quadlets
+  ansible.builtin.include_tasks: services.yml
+  when: quadlets_services | length > 0
+  tags:
+    - services
+
+- name: Final systemd sync and service start
+  ansible.builtin.include_tasks: systemd_reload.yml
+  tags: always
