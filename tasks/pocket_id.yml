@@ -1,0 +1,14 @@
+---
+# tasks/pocket_id.yml — Deploy the pocket-id OIDC provider quadlet
+
+- name: pocket-id | Template container unit file
+  ansible.builtin.template:
+    src: quadlet/pocket-id.container.j2
+    dest: "{{ _quadlets_systemd_dir }}/pocket-id.container"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true
+  notify:
+    - reload user systemd daemon
+    - restart pocket-id

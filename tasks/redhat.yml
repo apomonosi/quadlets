@@ -1,14 +1,17 @@
 ---
-# tasks file for quadlets
+# tasks/redhat.yml — RHEL / CentOS Stream specific setup
 
-- name: packages | install shared
+- name: RedHat | Install required packages
   ansible.builtin.package:
-    name: "{{ packages }}"
-  vars:
-    packages:
-      - rsyslog
-      - setroubleshoot-server
-      - telnet
-      - net-tools
-      - bind-utils
+    name: "{{ __quadlets_packages_redhat }}"
+    state: present
   become: true
+
+- name: RedHat | Set SELinux booleans for container operation
+  ansible.posix.seboolean:
+    name: "{{ item }}"
+    state: true
+    persistent: true
+  loop: "{{ __quadlets_sebooleans }}"
+  become: true
+  ignore_errors: true

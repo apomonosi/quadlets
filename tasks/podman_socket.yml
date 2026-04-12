@@ -1,0 +1,20 @@
+---
+# tasks/podman_socket.yml — Activate the rootless Podman socket for docker-gen
+
+- name: Podman socket | Enable and start podman.socket user unit
+  ansible.builtin.systemd:
+    name: podman.socket
+    enabled: true
+    state: started
+    scope: user
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
+
+- name: Podman socket | Wait for socket file to appear
+  ansible.builtin.wait_for:
+    path: "{{ _podman_socket_path }}"
+    state: present
+    timeout: 15

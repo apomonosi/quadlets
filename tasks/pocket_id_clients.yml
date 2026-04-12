@@ -1,0 +1,87 @@
+---
+# tasks/pocket_id_clients.yml — Register OIDC clients and user groups in pocket-id
+#
+# Usage: ansible-playbook site.yml --tags pocket_id_clients
+#
+# Prerequisites:
+#   - pocket-id is running and reachable
+#   - quadlets_pocket_id_api_key is set (obtained via pocket_id_bootstrap)
+#   - Each service in quadlets_services has oidc_client_id, pocket_id_group,
+#     and callback_urls defined
+
+- name: clients | Set API authentication header
+  ansible.builtin.set_fact:
+    _pocket_id_api_headers:
+      X-API-Key: "{{ quadlets_pocket_id_api_key }}"
+
+- name: clients | Fetch existing user groups
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/user-groups"
+    method: GET
+    headers: "{{ _pocket_id_api_headers }}"
+    status_code: [200]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _existing_groups
+
+- name: clients | Create user group for each service
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/user-groups"
+    method: POST
+    headers: "{{ _pocket_id_api_headers }}"
+    body_format: json
+    body:
+      name: "{{ item.pocket_id_group }}"
+      friendlyName: "{{ item.name | title }} Users"
+    status_code: [200, 201, 409]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.pocket_id_group is defined
+    - item.pocket_id_group not in
+      (_existing_groups.json | default([]) | map(attribute='name') | list)
+  register: _created_groups
+
+- name: clients | Fetch existing OIDC clients
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/oidc/clients"
+    method: GET
+    headers: "{{ _pocket_id_api_headers }}"
+    status_code: [200]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _existing_clients
+
+- name: clients | Create OIDC client for each new service
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/oidc/clients"
+    method: POST
+    headers: "{{ _pocket_id_api_headers }}"
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      redirectUris: "{{ item.callback_urls | default([]) }}"
+      isPublic: false
+      pkceEnabled: false
+    status_code: [200, 201]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.name not in
+      (_existing_clients.json | default([]) | map(attribute='name') | list)
+  register: _created_clients
+  no_log: true
+
+- name: clients | Display created OIDC client credentials
+  ansible.builtin.debug:
+    msg: |
+      OIDC client created for '{{ item.item.name }}':
+        Client ID:     {{ item.json.clientId | default(item.json.id) }}
+        Client Secret: {{ item.json.clientSecret | default('not returned; retrieve from pocket-id UI') }}
+      Store Client Secret in Ansible Vault as the oidc_client_secret for this service.
+  loop: "{{ _created_clients.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name | default('unknown') }}"
+  when: not (item.skipped | default(false))
