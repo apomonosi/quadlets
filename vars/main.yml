@@ -11,6 +11,7 @@ __quadlets_packages_redhat:
   - setroubleshoot-server
   - policycoreutils-python-utils
   - container-selinux
+  - systemd-container    # provides machinectl; required for user D-Bus session access
   - net-tools
   - bind-utils
 
