@@ -1,0 +1,12 @@
+---
+# tasks file for quadlets
+
+- name: Check | quadlets_ variables are defined
+  ansible.builtin.assert:
+    that:
+      - quadlets_type is defined
+      - quadlets_profile is defined
+    fail_msg: "'quadlets_type' must be defined"
+    success_msg: "quadlets_type | quadlets_type "
+
+...

@@ -1,0 +1,14 @@
+---
+# tasks file for quadlets
+
+- name: packages | install shared
+  ansible.builtin.package:
+    name: "{{ packages }}"
+  vars:
+    packages:
+      - rsyslog
+      - setroubleshoot-server
+      - telnet
+      - net-tools
+      - bind-utils
+  become: true

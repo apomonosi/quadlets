@@ -1,0 +1,7 @@
+---
+# defaults file for quadlets
+
+quadlets_type: ""
+quadlets_profile: ""
+
+...

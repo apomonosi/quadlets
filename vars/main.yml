@@ -1,0 +1,10 @@
+---
+# vars file for quadlets
+
+__quadlets_packages:
+  - rsyslog
+  - setroubleshoot-server
+  - telnet
+  - net-tools
+
+...
