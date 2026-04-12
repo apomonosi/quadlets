@@ -16,25 +16,30 @@ quadlets_uid: ""
 # ── Derived paths ─────────────────────────────────────────────────────────────
 # Leave empty to use defaults derived from quadlets_user home directory.
 #   quadlets_systemd_dir   → /home/<user>/.config/containers/systemd
-#   quadlets_certs_dir     → /home/<user>/.config/containers/certs
 #   quadlets_data_base_dir → /home/<user>/.local/share
+# Certificates live under the nginx-proxy config tree:
+#   quadlets_certs_dir     → /home/<user>/.config/nginx-proxy/certs
 quadlets_systemd_dir: ""
 quadlets_certs_dir: ""
 quadlets_data_base_dir: ""
 
 # ── Shared Podman network ─────────────────────────────────────────────────────
-quadlets_network_name: "proxy-net"
+quadlets_network_name: "proxy"
 quadlets_network_subnet: "10.89.0.0/24"
 quadlets_network_gateway: "10.89.0.1"
 
 # ── nginx-proxy ───────────────────────────────────────────────────────────────
 quadlets_nginx_proxy_enabled: true
-quadlets_nginx_proxy_image: "nginxproxy/nginx-proxy:latest"
+quadlets_nginx_proxy_image: "docker.io/jwilder/nginx-proxy:latest"
 quadlets_nginx_proxy_http_port: "80"
 quadlets_nginx_proxy_https_port: "443"
+quadlets_nginx_proxy_https_method: "redirect"
+quadlets_nginx_proxy_read_timeout: "600"
+quadlets_nginx_proxy_connect_timeout: "600"
 # Additional environment variables for the nginx-proxy container.
 quadlets_nginx_proxy_extra_env: {}
-# Set true to deploy a custom nginx.conf snippet (templates/nginx/custom.conf.j2).
+# Set true to populate conf.d/custom.conf from templates/nginx/custom.conf.j2.
+# The file is always mounted; this flag controls whether a template is applied.
 quadlets_nginx_proxy_custom_conf: false
 
 # ── pocket-id SSO ─────────────────────────────────────────────────────────────

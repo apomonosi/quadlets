@@ -1,43 +1,47 @@
 # Managed by Ansible — do not edit manually
-# Role: quadlets | Service: nginx-proxy
-# https://github.com/nginx-proxy/nginx-proxy
+# Role: quadlets | Service: nginx-proxy (jwilder/nginx-proxy)
+#
+# Systemd specifiers used here:
+#   %E  → $XDG_CONFIG_HOME  (rootless: ~/.config/,  rootful: /etc/)
+#   %t  → $XDG_RUNTIME_DIR  (rootless: /run/user/UID/, rootful: /run/)
 
 [Unit]
-Description=nginx-proxy — automatic reverse proxy with SSL termination
-After=network-online.target
-Wants=network-online.target
+Description=jwilder nginx reverse proxy
+After=network-online.target podman.socket
+Requires=podman.socket
 
 [Container]
 Image={{ quadlets_nginx_proxy_image }}
 ContainerName=nginx-proxy
-AutoUpdate=registry
 
-Network={{ quadlets_network_name }}.network
-
-# Expose HTTP and HTTPS to the host
 PublishPort={{ quadlets_nginx_proxy_http_port }}:80
 PublishPort={{ quadlets_nginx_proxy_https_port }}:443
 
-# Mount the rootless Podman socket so docker-gen can discover containers.
-# The socket is exposed as /tmp/docker.sock; DOCKER_HOST tells docker-gen to use it.
-Volume={{ _podman_socket_path }}:/tmp/docker.sock:ro,z
+SecurityLabelType=spc_t
 
-# TLS certificates directory. nginx-proxy expects <VIRTUAL_HOST>.crt and .key files.
-Volume={{ _quadlets_certs_dir }}:/etc/nginx/certs:ro,z
+# Config bind-mounts — all paths resolve via %E to ~/.config/nginx-proxy/
+Volume=%E/nginx-proxy/certs:/etc/nginx/certs:ro,Z
+Volume=%E/nginx-proxy/vhost.d:/etc/nginx/vhost.d:ro,Z
+Volume=%E/nginx-proxy/conf.d/custom.conf:/etc/nginx/conf.d/custom.conf:ro,Z
 
-{% if quadlets_nginx_proxy_custom_conf %}
-# Custom nginx configuration snippets
-Volume={{ _quadlets_nginx_proxy_data_dir }}/conf.d:/etc/nginx/conf.d:z
-{% endif %}
+# Podman socket — %t resolves to /run/user/<UID>/ for rootless units
+Volume=%t/podman/podman.sock:/tmp/docker.sock:Z
 
-Environment=DOCKER_HOST=unix:///tmp/docker.sock
+Network={{ quadlets_network_name }}.network
+
+Environment=HTTPS_METHOD={{ quadlets_nginx_proxy_https_method }}
+Environment=PROXY_READ_TIMEOUT={{ quadlets_nginx_proxy_read_timeout }}
+Environment=PROXY_CONNECT_TIMEOUT={{ quadlets_nginx_proxy_connect_timeout }}
 {% for key, value in quadlets_nginx_proxy_extra_env.items() %}
 Environment={{ key }}={{ value }}
 {% endfor %}
 
+Label=com.github.nginx-proxy.nginx=true
+
 [Service]
 Restart=always
-TimeoutStartSec=30
+# Give the Podman socket a moment to be ready before the container starts
+ExecStartPre=/bin/sleep 1
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
