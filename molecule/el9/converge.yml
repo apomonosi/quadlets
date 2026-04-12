@@ -2,11 +2,53 @@
 - name: Converge
   hosts: all
   gather_facts: true
+
+  pre_tasks:
+    - name: Create podman group
+      ansible.builtin.group:
+        name: podman
+        state: present
+      become: true
+
+    - name: Create podman user for rootless quadlets
+      ansible.builtin.user:
+        name: podman
+        group: podman
+        shell: /bin/bash
+        create_home: true
+        state: present
+      become: true
+
+  vars:
+    quadlets_user: podman
+    quadlets_group: podman
+    quadlets_cert_mode: mkcert
+    quadlets_pocket_id_virtual_host: sso.test.local
+
+    quadlets_services:
+      - name: grafana
+        image: grafana/grafana:latest
+        virtual_host: grafana.test.local
+        port: 3000
+        oidc_client_id: grafana
+        oidc_client_secret: molecule-test-secret
+        pocket_id_group: grafana_users
+        callback_urls:
+          - "https://grafana.test.local/login/generic_oauth"
+        env:
+          GF_SERVER_ROOT_URL: "https://grafana.test.local"
+          GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+          GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
+          GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
+          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: molecule-test-secret
+          GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
+          GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.test.local/authorize"
+          GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.test.local/api/oidc/token"
+          GF_AUTH_GENERIC_OAUTH_API_URL: "https://sso.test.local/api/oidc/userinfo"
+          GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
+
   tasks:
     - name: Include | quadlets role
       ansible.builtin.include_role:
         name: "quadlets"
-#      vars:
-#        sso_type: "nginx"
-#        sso_profile: "quadlet"
 ...
