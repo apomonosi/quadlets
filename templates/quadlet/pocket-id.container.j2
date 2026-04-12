@@ -28,11 +28,11 @@ Environment={{ key }}={{ value }}
 {% endfor %}
 
 # Persistent data volume (SQLite database, uploaded files, config)
-Volume={{ _quadlets_pocket_id_data_dir }}:/app/data:z
+Volume={{ _quadlets_pocket_id_data_dir }}:/app/data:Z
 
 [Service]
 Restart=always
 TimeoutStartSec=60
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

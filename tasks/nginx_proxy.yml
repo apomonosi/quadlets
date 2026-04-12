@@ -1,6 +1,32 @@
 ---
 # tasks/nginx_proxy.yml — Deploy the nginx-proxy reverse proxy quadlet
 
+# conf.d/custom.conf is always mounted into the container as a file.
+# Deploy the template when quadlets_nginx_proxy_custom_conf is true,
+# otherwise ensure an empty placeholder exists so the bind-mount succeeds.
+- name: nginx-proxy | Deploy custom.conf (template)
+  ansible.builtin.template:
+    src: nginx/custom.conf.j2
+    dest: "{{ _quadlets_nginx_proxy_config_dir }}/conf.d/custom.conf"
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+  become: true
+  when: quadlets_nginx_proxy_custom_conf | bool
+  notify: restart nginx-proxy
+
+- name: nginx-proxy | Create empty custom.conf placeholder
+  ansible.builtin.file:
+    path: "{{ _quadlets_nginx_proxy_config_dir }}/conf.d/custom.conf"
+    state: touch
+    owner: "{{ quadlets_user }}"
+    group: "{{ quadlets_group }}"
+    mode: "0640"
+    modification_time: preserve
+    access_time: preserve
+  become: true
+  when: not (quadlets_nginx_proxy_custom_conf | bool)
+
 - name: nginx-proxy | Template container unit file
   ansible.builtin.template:
     src: quadlet/nginx-proxy.container.j2
@@ -12,24 +38,3 @@
   notify:
     - reload user systemd daemon
     - restart nginx-proxy
-
-- name: nginx-proxy | Create conf.d directory for custom nginx snippets
-  ansible.builtin.file:
-    path: "{{ _quadlets_nginx_proxy_data_dir }}/conf.d"
-    state: directory
-    owner: "{{ quadlets_user }}"
-    group: "{{ quadlets_group }}"
-    mode: "0750"
-  become: true
-  when: quadlets_nginx_proxy_custom_conf | bool
-
-- name: nginx-proxy | Deploy custom nginx conf snippet
-  ansible.builtin.template:
-    src: nginx/custom.conf.j2
-    dest: "{{ _quadlets_nginx_proxy_data_dir }}/conf.d/custom.conf"
-    owner: "{{ quadlets_user }}"
-    group: "{{ quadlets_group }}"
-    mode: "0640"
-  become: true
-  when: quadlets_nginx_proxy_custom_conf | bool
-  notify: restart nginx-proxy

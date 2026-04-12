@@ -19,19 +19,24 @@
     _quadlets_systemd_dir: >-
       {{ quadlets_systemd_dir if quadlets_systemd_dir != ''
          else '/home/' + quadlets_user + '/.config/containers/systemd' }}
-    _quadlets_certs_dir: >-
-      {{ quadlets_certs_dir if quadlets_certs_dir != ''
-         else '/home/' + quadlets_user + '/.config/containers/certs' }}
     _quadlets_data_base_dir: >-
       {{ quadlets_data_base_dir if quadlets_data_base_dir != ''
          else '/home/' + quadlets_user + '/.local/share' }}
+    # nginx-proxy configuration tree lives under ~/.config/nginx-proxy/
+    # matching the %E/nginx-proxy/ specifier used in the quadlet unit file.
+    _quadlets_nginx_proxy_config_dir: "/home/{{ quadlets_user }}/.config/nginx-proxy"
 
-- name: Preflight | Set socket and data directory facts
+- name: Preflight | Set socket, cert, and data directory facts
   ansible.builtin.set_fact:
     _podman_socket_path: "/run/user/{{ quadlets_uid }}/podman/podman.sock"
     _quadlets_pocket_id_data_dir: "{{ _quadlets_data_base_dir }}/pocket-id"
-    _quadlets_nginx_proxy_data_dir: "{{ _quadlets_data_base_dir }}/nginx-proxy"
     _mkcert_caroot: "/home/{{ quadlets_user }}/.local/share/mkcert"
+    # Certs sit inside the nginx-proxy config tree so they match the container
+    # bind-mount path (%E/nginx-proxy/certs). Override quadlets_certs_dir to
+    # place them elsewhere.
+    _quadlets_certs_dir: >-
+      {{ quadlets_certs_dir if quadlets_certs_dir != ''
+         else '/home/' + quadlets_user + '/.config/nginx-proxy/certs' }}
 
 - name: Preflight | Validate required fields on each service entry
   ansible.builtin.assert:
@@ -56,14 +61,20 @@
     mode: "0750"
   become: true
 
-- name: Preflight | Create TLS certificates directory
+- name: Preflight | Create nginx-proxy config directory tree
   ansible.builtin.file:
-    path: "{{ _quadlets_certs_dir }}"
+    path: "{{ item }}"
     state: directory
     owner: "{{ quadlets_user }}"
     group: "{{ quadlets_group }}"
     mode: "0750"
+  loop:
+    - "{{ _quadlets_nginx_proxy_config_dir }}"
+    - "{{ _quadlets_nginx_proxy_config_dir }}/certs"
+    - "{{ _quadlets_nginx_proxy_config_dir }}/vhost.d"
+    - "{{ _quadlets_nginx_proxy_config_dir }}/conf.d"
   become: true
+  when: quadlets_nginx_proxy_enabled | bool
 
 - name: Preflight | Create pocket-id data directory
   ansible.builtin.file:
@@ -74,13 +85,3 @@
     mode: "0750"
   become: true
   when: quadlets_pocket_id_enabled | bool
-
-- name: Preflight | Create nginx-proxy data directory
-  ansible.builtin.file:
-    path: "{{ _quadlets_nginx_proxy_data_dir }}"
-    state: directory
-    owner: "{{ quadlets_user }}"
-    group: "{{ quadlets_group }}"
-    mode: "0750"
-  become: true
-  when: quadlets_nginx_proxy_enabled | bool
