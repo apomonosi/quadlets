@@ -31,6 +31,7 @@
     _podman_socket_path: "/run/user/{{ quadlets_uid }}/podman/podman.sock"
     _quadlets_pocket_id_data_dir: "{{ _quadlets_data_base_dir }}/pocket-id"
     _quadlets_nginx_proxy_data_dir: "{{ _quadlets_data_base_dir }}/nginx-proxy"
+    _mkcert_caroot: "/home/{{ quadlets_user }}/.local/share/mkcert"
 
 - name: Preflight | Validate required fields on each service entry
   ansible.builtin.assert:

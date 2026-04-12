@@ -1,6 +1,14 @@
 ---
 # tasks/cert_mkcert.yml — Generate a locally-trusted cert with mkcert
 # Input variables: _cert_virtual_host
+#
+# mkcert -install is intentionally NOT used here. It calls `sudo tee` internally
+# to copy the root CA to /etc/pki/ca-trust/, which hangs in a non-TTY Ansible
+# run waiting for a sudo password. Instead we:
+#   1. Generate the cert as the quadlets_user (mkcert auto-creates the CA on
+#      first run and stores it under _mkcert_caroot).
+#   2. Copy rootCA.pem to the system trust anchors directory as root.
+#   3. Run update-ca-trust as root only when the CA file changed.
 
 - name: mkcert | Check if binary is already installed
   ansible.builtin.stat:
@@ -24,16 +32,6 @@
   become: true
   when: not _mkcert_stat.stat.exists
 
-- name: mkcert | Install local CA into system trust store
-  ansible.builtin.command:
-    cmd: "{{ quadlets_mkcert_install_dir }}/mkcert -install"
-  environment:
-    HOME: "/home/{{ quadlets_user }}"
-    CAROOT: "/home/{{ quadlets_user }}/.local/share/mkcert"
-  become: true
-  become_user: "{{ quadlets_user }}"
-  changed_when: false
-
 - name: "mkcert | Generate certificate for {{ _cert_virtual_host }}"
   ansible.builtin.command:
     argv:
@@ -46,6 +44,22 @@
     creates: "{{ _quadlets_certs_dir }}/{{ _cert_virtual_host }}.crt"
   environment:
     HOME: "/home/{{ quadlets_user }}"
-    CAROOT: "/home/{{ quadlets_user }}/.local/share/mkcert"
+    CAROOT: "{{ _mkcert_caroot }}"
   become: true
   become_user: "{{ quadlets_user }}"
+
+# Copy the CA cert directly as root — avoids the sudo-inside-mkcert problem.
+- name: mkcert | Copy local CA to system trust anchors
+  ansible.builtin.copy:
+    src: "{{ _mkcert_caroot }}/rootCA.pem"
+    dest: /etc/pki/ca-trust/source/anchors/mkcert-rootCA.pem
+    remote_src: true
+    mode: "0644"
+  become: true
+  register: _mkcert_ca_copy
+
+- name: mkcert | Update system CA bundle
+  ansible.builtin.command:
+    cmd: update-ca-trust
+  become: true
+  when: _mkcert_ca_copy.changed
