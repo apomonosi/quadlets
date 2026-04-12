@@ -13,8 +13,15 @@
     XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
     DBUS_SESSION_BUS_ADDRESS: "unix:path={{ _quadlets_runtime_dir }}/bus"
 
+# wait_for does not support become, so root would get Permission denied when
+# trying to stat inside the user's private runtime directory under SELinux.
+# Use stat with become_user so the check runs as the podman user instead.
 - name: Podman socket | Wait for socket file to appear
-  ansible.builtin.wait_for:
+  ansible.builtin.stat:
     path: "{{ _podman_socket_path }}"
-    state: present
-    timeout: 15
+  register: _socket_stat
+  until: _socket_stat.stat.exists | default(false)
+  retries: 15
+  delay: 1
+  become: true
+  become_user: "{{ quadlets_user }}"

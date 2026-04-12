@@ -15,8 +15,28 @@
   when: "_linger_status.stdout is not search('Linger=yes')"
   become: true
 
-- name: Linger | Wait for user runtime directory to become available
-  ansible.builtin.wait_for:
+# wait_for does not support become, so root would try to stat a path inside the
+# user's private runtime directory and get Permission denied from SELinux.
+# Use stat with become_user so the check runs as the podman user instead.
+- name: Linger | Wait for user runtime directory to appear
+  ansible.builtin.stat:
     path: "/run/user/{{ quadlets_uid }}"
-    state: present
-    timeout: 30
+  register: _runtime_dir_stat
+  until: _runtime_dir_stat.stat.exists | default(false)
+  retries: 30
+  delay: 1
+  become: true
+  become_user: "{{ quadlets_user }}"
+
+# /run/user/<uid>/systemd/private only appears once the user systemd instance has
+# fully initialised its D-Bus socket. Waiting for it avoids race conditions where
+# subsequent systemctl --user calls arrive before the bus is ready.
+- name: Linger | Wait for user systemd instance to be fully initialised
+  ansible.builtin.stat:
+    path: "/run/user/{{ quadlets_uid }}/systemd/private"
+  register: _user_systemd_stat
+  until: _user_systemd_stat.stat.exists | default(false)
+  retries: 30
+  delay: 1
+  become: true
+  become_user: "{{ quadlets_user }}"
