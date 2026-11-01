@@ -9,7 +9,8 @@ Ansible role for deploying rootless Podman quadlet services behind
 - RHEL / CentOS Stream 9+ on the target host
 - Ansible 2.15+
 - A dedicated OS user for rootless Podman (default: `podman`)
-- Collections: `ansible.posix`, `community.general` (see `requirements.yml`)
+- Collections: `ansible.posix`, `community.general`, `containers.podman` (see `requirements.yml`)
+- Podman >= 4.7 on the target (EL9 ships 5.x) for idempotent secret updates
 
 Install collections:
 
@@ -100,6 +101,12 @@ pocket-id has no username/password login (passkeys only), so Ansible cannot crea
 an admin account or mint an API key itself. Instead it injects
 `quadlets_pocket_id_static_api_key` as `STATIC_API_KEY`, which pocket-id accepts in
 the `X-API-Key` header as an admin credential.
+
+Both keys are stored as Podman secrets (`pocket-id-encryption-key`,
+`pocket-id-static-api-key`) in the quadlet user's secret store and injected with
+quadlet `Secret=…,type=env`, so they never appear in the unit file or in
+`podman inspect`. A changed value updates the secret and restarts pocket-id;
+clearing `quadlets_pocket_id_static_api_key` removes its secret.
 
 ### Certificates
 

@@ -54,11 +54,12 @@ quadlets_pocket_id_extra_env: {}
 
 # Key used by pocket-id to encrypt sensitive data at rest. REQUIRED by pocket-id
 # v2 (the container refuses to start without it). Minimum 16 characters.
+# Delivered to the container as ENCRYPTION_KEY via a Podman secret.
 # Generate with `openssl rand -base64 32` and store in Ansible Vault.
 # Never change it after first start — existing encrypted data becomes unreadable.
 quadlets_pocket_id_encryption_key: ""
 
-# Static API key injected into the pocket-id container as STATIC_API_KEY env var.
+# Static API key, delivered to pocket-id as STATIC_API_KEY via a Podman secret.
 # pocket-id accepts this value via X-API-Key header without any browser session.
 # Minimum 16 characters. Store in Ansible Vault. Leave empty to skip injection.
 # When set, this value is automatically used as quadlets_pocket_id_api_key below

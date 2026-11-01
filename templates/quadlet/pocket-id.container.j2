@@ -22,9 +22,11 @@ Environment=VIRTUAL_PROTO=http
 # pocket-id application configuration
 Environment=APP_URL={{ quadlets_pocket_id_issuer_url }}
 Environment=TRUST_PROXY=true
-Environment="ENCRYPTION_KEY={{ quadlets_pocket_id_encryption_key | replace('\\', '\\\\') | replace('"', '\\"') }}"
+
+# Keys come from Podman secrets (see tasks/pocket_id.yml), not plain Environment=
+Secret={{ __quadlets_pocket_id_secret_encryption_key }},type=env,target=ENCRYPTION_KEY
 {% if quadlets_pocket_id_static_api_key | length > 0 %}
-Environment="STATIC_API_KEY={{ quadlets_pocket_id_static_api_key | replace('\\', '\\\\') | replace('"', '\\"') }}"
+Secret={{ __quadlets_pocket_id_secret_static_api_key }},type=env,target=STATIC_API_KEY
 {% endif %}
 
 {% for key, value in quadlets_pocket_id_extra_env.items() %}

@@ -15,6 +15,10 @@ __quadlets_packages_redhat:
   - net-tools
   - bind-utils
 
+# Podman secret names (in the quadlets user's secret store) for pocket-id keys.
+__quadlets_pocket_id_secret_encryption_key: pocket-id-encryption-key
+__quadlets_pocket_id_secret_static_api_key: pocket-id-static-api-key
+
 # SELinux booleans required for rootless container networking on RHEL.
 __quadlets_sebooleans:
   - container_manage_cgroup
