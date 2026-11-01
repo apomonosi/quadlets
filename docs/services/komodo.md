@@ -31,6 +31,7 @@ quadlets_services:
     port: 9120
     oidc_client_id: komodo
     oidc_client_secret: "{{ vault_komodo_oidc_secret }}"
+    oidc_client_secret_env: KOMODO_OIDC_CLIENT_SECRET   # injected from a Podman secret
     pocket_id_group: komodo_users
     callback_urls:
       - "https://komodo.example.com/auth/oidc/callback"
@@ -40,6 +41,5 @@ quadlets_services:
       KOMODO_OIDC_ENABLED: "true"
       KOMODO_OIDC_PROVIDER: "https://sso.example.com"
       KOMODO_OIDC_CLIENT_ID: "{{ vault_komodo_oidc_client_id }}"
-      KOMODO_OIDC_CLIENT_SECRET: "{{ vault_komodo_oidc_secret }}"
       KOMODO_HOST: "https://komodo.example.com"
 ```

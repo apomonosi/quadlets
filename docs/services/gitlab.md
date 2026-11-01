@@ -35,7 +35,7 @@ gitlab_rails['omniauth_providers'] = [
       uid_field: "preferred_username",
       client_options: {
         identifier: "<CLIENT_ID>",
-        secret: "<CLIENT_SECRET>",
+        secret: ENV["OIDC_CLIENT_SECRET"],  # injected from the Podman secret
         redirect_uri: "https://gitlab.example.com/users/auth/openid_connect/callback"
       }
     }

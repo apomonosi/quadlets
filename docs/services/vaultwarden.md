@@ -41,6 +41,7 @@ quadlets_services:
     port: 80
     oidc_client_id: vaultwarden
     oidc_client_secret: "{{ vault_vaultwarden_oidc_secret }}"
+    oidc_client_secret_env: SSO_CLIENT_SECRET   # injected from a Podman secret
     pocket_id_group: vaultwarden_users
     callback_urls:
       - "https://vaultwarden.example.com/identity/connect/oidc-signin"
@@ -51,7 +52,6 @@ quadlets_services:
       SSO_ENABLED: "true"
       SSO_ONLY: "false"
       SSO_CLIENT_ID: "{{ vault_vaultwarden_oidc_client_id }}"
-      SSO_CLIENT_SECRET: "{{ vault_vaultwarden_oidc_secret }}"
       SSO_AUTHORITY: "https://sso.example.com"
       SIGNUPS_ALLOWED: "false"
       ADMIN_TOKEN: "{{ vault_vaultwarden_admin_token }}"

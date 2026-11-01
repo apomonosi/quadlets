@@ -52,11 +52,11 @@
         pocket_id_group: grafana_users
         callback_urls:
           - "https://grafana.test.local/login/generic_oauth"
-        # oidc_client_secret is intentionally absent here — pocket-id generates it.
-        # After running --tags pocket_id_clients, record the printed secret, store it
-        # in Ansible Vault, then redeploy with:
-        #   oidc_client_secret: "{{ vault_grafana_oidc_secret }}"
-        #   env.GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{ vault_grafana_oidc_secret }}"
+        # Placeholder so the Podman-secret path is exercised. In a real deployment,
+        # pocket-id generates the secret: run --tags pocket_id_clients, store the
+        # printed secret in Ansible Vault and set oidc_client_secret to it.
+        oidc_client_secret: molecule-placeholder-oidc-secret
+        oidc_client_secret_env: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
         env:
           GF_SERVER_ROOT_URL: "https://grafana.test.local"
           GF_AUTH_GENERIC_OAUTH_ENABLED: "true"

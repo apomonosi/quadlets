@@ -13,6 +13,39 @@
     label: "{{ item.name }}"
   become: true
 
+# OIDC client secrets are kept in the quadlets user's Podman secret store and
+# injected with Secret=...,type=env (target: oidc_client_secret_env), so they
+# never appear in unit files or `podman inspect`.
+- name: Services | Store OIDC client secret as Podman secret
+  containers.podman.podman_secret:
+    name: "{{ item.name }}{{ __quadlets_oidc_secret_suffix }}"
+    data: "{{ item.oidc_client_secret }}"
+    state: present
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.oidc_client_secret | default('') | length > 0
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  no_log: true
+  notify: restart quadlet services
+
+- name: Services | Remove OIDC client secret for services without one
+  containers.podman.podman_secret:
+    name: "{{ item.name }}{{ __quadlets_oidc_secret_suffix }}"
+    state: absent
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.oidc_client_secret | default('') | length == 0
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  notify: restart quadlet services
+
 - name: Services | Template container unit file for each service
   ansible.builtin.template:
     src: quadlet/service.container.j2

@@ -108,6 +108,14 @@ quadlet `Secret=…,type=env`, so they never appear in the unit file or in
 `podman inspect`. A changed value updates the secret and restarts pocket-id;
 clearing `quadlets_pocket_id_static_api_key` removes its secret.
 
+Each service's `oidc_client_secret` is handled the same way: it is stored as the
+Podman secret `<name>-oidc-client-secret` and injected as the environment variable
+named by `oidc_client_secret_env` (default `OIDC_CLIENT_SECRET`). Set that to the
+variable the app reads (e.g. `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET`) and do **not**
+repeat the secret in `env`, which is written to the unit file in plain text.
+Apps configured through a single config variable can usually read it from the
+environment instead (GitLab: `secret: ENV["OIDC_CLIENT_SECRET"]`).
+
 ### Certificates
 
 | Variable | Default | Description |
@@ -128,7 +136,9 @@ quadlets_services:
     virtual_host: myapp.example.com      # required — FQDN routed by nginx-proxy
     port: 8080                           # required — container port
     oidc_client_id: myapp                # OIDC client ID in pocket-id (default: name)
-    oidc_client_secret: "{{ vault }}"    # OIDC client secret (Vault-encrypt!)
+    oidc_client_secret: "{{ vault }}"    # OIDC client secret (Vault-encrypt!), stored
+                                         # as a Podman secret, not in the unit file
+    oidc_client_secret_env: OIDC_CLIENT_SECRET   # env var the app reads it from
     oidc_issuer_url: ""                  # override issuer (default: pocket-id URL)
     pocket_id_group: myapp_users         # pocket-id group allowed to use this client
     callback_urls:                       # redirect URIs; an OIDC client is registered
@@ -191,6 +201,7 @@ quadlets_services:
     port: 3000
     oidc_client_id: grafana
     oidc_client_secret: "{{ vault_grafana_oidc_secret }}"
+    oidc_client_secret_env: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
     pocket_id_group: grafana_users
     callback_urls:
       - "https://grafana.mydomain.com/login/generic_oauth"
@@ -199,7 +210,6 @@ quadlets_services:
       GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
       GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
       GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
-      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{ vault_grafana_oidc_secret }}"
       GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
       GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.mydomain.com/authorize"
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.mydomain.com/api/oidc/token"

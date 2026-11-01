@@ -104,7 +104,11 @@ quadlets_byo_key_src: ""
 #
 # Optional keys:
 #   oidc_client_id      — OIDC client ID registered in pocket-id (default: name)
-#   oidc_client_secret  — OIDC client secret (Vault-encrypt!)
+#   oidc_client_secret  — OIDC client secret (Vault-encrypt!); stored as a Podman
+#                         secret, never written to the unit file
+#   oidc_client_secret_env — env var the app reads the secret from
+#                         (default: OIDC_CLIENT_SECRET), e.g.
+#                         GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET for Grafana
 #   oidc_issuer_url     — override OIDC issuer (default: quadlets_pocket_id_issuer_url)
 #   pocket_id_group     — pocket-id user group name for this service
 #   callback_urls       — redirect URIs; an OIDC client is registered in

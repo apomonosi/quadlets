@@ -44,6 +44,7 @@ quadlets_services:
     port: 80
     oidc_client_id: bookstack
     oidc_client_secret: "{{ vault_bookstack_oidc_secret }}"
+    oidc_client_secret_env: OIDC_CLIENT_SECRET   # injected from a Podman secret
     pocket_id_group: bookstack_users
     callback_urls:
       - "https://bookstack.example.com/oidc/callback"
@@ -56,7 +57,6 @@ quadlets_services:
       OIDC_NAME: "Pocket ID"
       OIDC_DISPLAY_NAME_CLAIMS: "name"
       OIDC_CLIENT_ID: bookstack          # replaced at runtime via oidc_client_id
-      OIDC_CLIENT_SECRET: "{{ vault_bookstack_oidc_secret }}"
       OIDC_ISSUER: "https://sso.example.com"
       OIDC_ISSUER_DISCOVER: "true"
       OIDC_END_SESSION_ENDPOINT: "true"

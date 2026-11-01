@@ -38,6 +38,7 @@ quadlets_services:
     port: 8080
     oidc_client_id: openwebui
     oidc_client_secret: "{{ vault_openwebui_oidc_secret }}"
+    oidc_client_secret_env: OAUTH_CLIENT_SECRET   # injected from a Podman secret
     pocket_id_group: openwebui_users
     callback_urls:
       - "https://openwebui.example.com/oauth/oidc/callback"
@@ -46,7 +47,6 @@ quadlets_services:
     env:
       ENABLE_OAUTH_SIGNUP: "true"
       OAUTH_CLIENT_ID: "{{ vault_openwebui_oidc_client_id }}"
-      OAUTH_CLIENT_SECRET: "{{ vault_openwebui_oidc_secret }}"
       OAUTH_PROVIDER_NAME: "Pocket ID"
       OPENID_PROVIDER_URL: "https://sso.example.com/.well-known/openid-configuration"
       OAUTH_MERGE_ACCOUNTS_BY_EMAIL: "true"

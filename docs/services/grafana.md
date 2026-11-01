@@ -42,6 +42,7 @@ quadlets_services:
     port: 3000
     oidc_client_id: grafana
     oidc_client_secret: "{{ vault_grafana_oidc_secret }}"
+    oidc_client_secret_env: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET   # injected from a Podman secret
     pocket_id_group: grafana_users
     callback_urls:
       - "https://grafana.example.com/login/generic_oauth"
@@ -52,7 +53,6 @@ quadlets_services:
       GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
       GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
       GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "{{ vault_grafana_oidc_client_id }}"
-      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{ vault_grafana_oidc_secret }}"
       GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
       GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.example.com/authorize"
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.example.com/api/oidc/token"

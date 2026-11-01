@@ -21,6 +21,7 @@
         port: 3000
         oidc_client_id: grafana
         oidc_client_secret: changeme
+        oidc_client_secret_env: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
         pocket_id_group: grafana_users
         callback_urls:
           - "https://grafana.test.local/login/generic_oauth"
@@ -29,7 +30,6 @@
           GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
           GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
           GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
-          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: changeme
           GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
           GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.test.local/authorize"
           GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.test.local/api/oidc/token"
