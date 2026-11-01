@@ -50,3 +50,4 @@ nav:
       - Komodo: services/komodo.md
       - Open WebUI: services/openwebui.md
       - Vaultwarden: services/vaultwarden.md
+  - Changelog: changelog.md
