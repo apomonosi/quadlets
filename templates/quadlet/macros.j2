@@ -1,0 +1,6 @@
+{#- Quoted Environment= line. Escapes \ and " and turns newlines into \n:
+    quadlet C-unescapes Environment= values and re-escapes them in ExecStart,
+    so multi-line values reach the container intact. -#}
+{%- macro env(key, value) -%}
+Environment="{{ key }}={{ value | string | replace('\\', '\\\\') | replace('"', '\\"') | replace('\n', '\\n') }}"
+{%- endmacro -%}

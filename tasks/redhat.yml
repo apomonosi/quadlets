@@ -14,4 +14,4 @@
     persistent: true
   loop: "{{ __quadlets_sebooleans }}"
   become: true
-  ignore_errors: true
+  when: ansible_facts.selinux.status | default('disabled') == 'enabled'

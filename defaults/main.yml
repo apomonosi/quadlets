@@ -44,7 +44,7 @@ quadlets_nginx_proxy_custom_conf: false
 
 # ── pocket-id SSO ─────────────────────────────────────────────────────────────
 quadlets_pocket_id_enabled: true
-quadlets_pocket_id_image: "ghcr.io/stonith404/pocket-id:latest"
+quadlets_pocket_id_image: "ghcr.io/pocket-id/pocket-id:v2"
 # FQDN under which pocket-id is reachable through nginx-proxy.
 quadlets_pocket_id_virtual_host: "sso.example.com"
 # Public OIDC issuer URL used by services for endpoint discovery.
@@ -52,7 +52,14 @@ quadlets_pocket_id_issuer_url: "https://{{ quadlets_pocket_id_virtual_host }}"
 # Additional environment variables for the pocket-id container.
 quadlets_pocket_id_extra_env: {}
 
-# Static API key injected into the pocket-id container as STATIC_API_KEY env var.
+# Key used by pocket-id to encrypt sensitive data at rest. REQUIRED by pocket-id
+# v2 (the container refuses to start without it). Minimum 16 characters.
+# Delivered to the container as ENCRYPTION_KEY via a Podman secret.
+# Generate with `openssl rand -base64 32` and store in Ansible Vault.
+# Never change it after first start — existing encrypted data becomes unreadable.
+quadlets_pocket_id_encryption_key: ""
+
+# Static API key, delivered to pocket-id as STATIC_API_KEY via a Podman secret.
 # pocket-id accepts this value via X-API-Key header without any browser session.
 # Minimum 16 characters. Store in Ansible Vault. Leave empty to skip injection.
 # When set, this value is automatically used as quadlets_pocket_id_api_key below
@@ -64,10 +71,6 @@ quadlets_pocket_id_static_api_key: ""
 # separately created API key from the pocket-id UI.
 # Required when quadlets_pocket_id_provision_clients: true.
 quadlets_pocket_id_api_key: ""
-
-# Verify API connectivity and key validity (run once after first deploy).
-# Use: ansible-playbook ... --tags pocket_id_bootstrap
-quadlets_pocket_id_bootstrap: false
 
 # Automatically register OIDC clients and user groups via the pocket-id API.
 # Requires quadlets_pocket_id_api_key (or quadlets_pocket_id_static_api_key) to be set.
@@ -94,20 +97,31 @@ quadlets_byo_key_src: ""
 # Full schema and per-service examples in README.md and docs/services/.
 #
 # Required keys per service:
-#   name         — systemd unit name (e.g. "nextcloud")
+#   name         — systemd unit name and container name (e.g. "nextcloud")
 #   image        — container image (e.g. "nextcloud:29")
+#
+# Public services (routed by nginx-proxy, with a TLS certificate):
 #   virtual_host — FQDN routed by nginx-proxy (e.g. "nextcloud.example.com")
-#   port         — internal container port nginx-proxy proxies to
+#   port         — container port nginx-proxy proxies to (required with virtual_host)
+# Entries without virtual_host are internal-only (e.g. databases): no proxy
+# routing or certificate; other containers reach them by name on the network.
 #
 # Optional keys:
-#   oidc_client_id      — OIDC client ID registered in pocket-id
-#   oidc_client_secret  — OIDC client secret (Vault-encrypt!)
+#   oidc_client_id      — OIDC client ID registered in pocket-id (default: name)
+#   oidc_client_secret  — OIDC client secret (Vault-encrypt!); stored as a Podman
+#                         secret, never written to the unit file
+#   oidc_client_secret_env — env var the app reads the secret from
+#                         (default: OIDC_CLIENT_SECRET), e.g.
+#                         GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET for Grafana
 #   oidc_issuer_url     — override OIDC issuer (default: quadlets_pocket_id_issuer_url)
 #   pocket_id_group     — pocket-id user group name for this service
-#   callback_urls       — redirect URIs for pocket-id client registration
+#   callback_urls       — redirect URIs; an OIDC client is registered in
+#                         pocket-id only for services that define this
 #   pkce_enabled        — enable PKCE for this OIDC client (default: true)
 #   volumes             — list of "host:container[:options]" volume strings
-#   env                 — dict of extra environment variables
+#   env                 — dict of extra environment variables (plain text in the unit)
+#   secrets             — dict of sensitive environment variables (passwords, tokens);
+#                         each value is stored as a Podman secret and injected as env
 #   cert_mode           — per-service cert mode override (default: quadlets_cert_mode)
 #   byo_cert_src        — per-service BYO cert path override
 #   byo_key_src         — per-service BYO key path override

@@ -1,0 +1,33 @@
+---
+# tasks/pocket_id_list.yml — Fetch every page of a paginated pocket-id list endpoint
+# Input:  _list_path    (e.g. /api/user-groups), _pocket_id_api_headers
+# Output: _list_items   (concatenated "data" arrays from all pages)
+#
+# pocket-id caps pagination[limit] at 100, so larger lists need several requests.
+
+- name: "Pocket-id list | Fetch first page of {{ _list_path }}"
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}{{ _list_path }}?pagination%5Blimit%5D=100&pagination%5Bpage%5D=1"
+    method: GET
+    headers: "{{ _pocket_id_api_headers }}"
+    status_code: [200]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  register: _list_first
+
+- name: "Pocket-id list | Fetch remaining pages of {{ _list_path }}"
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}{{ _list_path }}?pagination%5Blimit%5D=100&pagination%5Bpage%5D={{ item }}"
+    method: GET
+    headers: "{{ _pocket_id_api_headers }}"
+    status_code: [200]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  loop: "{{ range(2, (_list_first.json.pagination.totalPages | int) + 1) | list }}"
+  register: _list_rest
+
+- name: "Pocket-id list | Combine pages of {{ _list_path }}"
+  ansible.builtin.set_fact:
+    _list_items: >-
+      {{ _list_first.json.data
+         + (_list_rest.results | default([])
+            | selectattr('json', 'defined')
+            | map(attribute='json.data') | flatten) }}

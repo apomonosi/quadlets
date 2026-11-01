@@ -43,14 +43,32 @@
     that:
       - item.name is defined
       - item.image is defined
-      - item.virtual_host is defined
-      - item.port is defined
+      - item.virtual_host | default('') | length == 0 or item.port is defined
+      - item.secrets | default({}) is mapping
+      # A variable in both env and secrets would land in the unit file in plain text.
+      - (item.secrets | default({})).keys() | intersect((item.env | default({})).keys()) | length == 0
+      - item.oidc_client_secret | default('') | length == 0 or
+        (item.oidc_client_secret_env | default('OIDC_CLIENT_SECRET')) not in (item.secrets | default({}))
     fail_msg: >
-      Service entry missing required fields (name, image, virtual_host, port):
-      {{ item | to_json }}
+      Service entry needs name and image, plus port when virtual_host is set
+      (entries without virtual_host are internal-only); `secrets` must be a mapping
+      whose variables appear in neither `env` nor oidc_client_secret_env.
+      Service: {{ item.name | default('unnamed') }}
   loop: "{{ quadlets_services }}"
   loop_control:
     label: "{{ item.name | default('unnamed') }}"
+
+- name: Preflight | Validate pocket-id keys
+  ansible.builtin.assert:
+    that:
+      - quadlets_pocket_id_encryption_key | length >= 16
+      - quadlets_pocket_id_static_api_key | length == 0 or
+        quadlets_pocket_id_static_api_key | length >= 16
+    fail_msg: >
+      pocket-id requires quadlets_pocket_id_encryption_key (>= 16 chars), and
+      quadlets_pocket_id_static_api_key must be empty or >= 16 chars.
+      Generate values with `openssl rand -base64 32` and store them in Ansible Vault.
+  when: quadlets_pocket_id_enabled | bool
 
 - name: Preflight | Create quadlet systemd unit directory
   ansible.builtin.file:

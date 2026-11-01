@@ -13,6 +13,96 @@
     label: "{{ item.name }}"
   become: true
 
+# OIDC client secrets are kept in the quadlets user's Podman secret store and
+# injected with Secret=...,type=env (target: oidc_client_secret_env), so they
+# never appear in unit files or `podman inspect`.
+- name: Services | Store OIDC client secret as Podman secret
+  containers.podman.podman_secret:
+    name: "{{ item.name }}{{ __quadlets_oidc_secret_suffix }}"
+    data: "{{ item.oidc_client_secret }}"
+    state: present
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.oidc_client_secret | default('') | length > 0
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  no_log: true
+  notify: restart quadlet services
+
+- name: Services | Remove OIDC client secret for services without one
+  containers.podman.podman_secret:
+    name: "{{ item.name }}{{ __quadlets_oidc_secret_suffix }}"
+    state: absent
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.oidc_client_secret | default('') | length == 0
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  notify: restart quadlet services
+
+# Per-service `secrets:` (VAR: value) are stored as "<name>-env-<var>" (var
+# lower-cased, _ → -) and injected as VAR. The template derives the same names.
+- name: Services | Collect env secrets
+  ansible.builtin.set_fact:
+    _env_secrets: >-
+      {% set out = [] -%}
+      {% for svc in quadlets_services -%}
+      {% for var, value in (svc.secrets | default({})).items() -%}
+      {% set _ = out.append({'service': svc.name, 'var': var, 'value': value,
+                             'name': svc.name ~ __quadlets_env_secret_infix
+                                     ~ (var | lower | replace('_', '-'))}) -%}
+      {% endfor -%}
+      {% endfor -%}
+      {{ out }}
+  no_log: true
+
+- name: Services | Store env secrets as Podman secrets
+  containers.podman.podman_secret:
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    state: present
+  loop: "{{ _env_secrets }}"
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  no_log: true
+  notify: restart quadlet services
+
+- name: Services | List existing Podman secrets
+  ansible.builtin.command:
+    argv: [podman, secret, ls, --noheading, --format, "{% raw %}{{.Name}}{% endraw %}"]
+  register: _podman_secret_names
+  changed_when: false
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+
+# Only names under a configured service's "<name>-env-" prefix are touched.
+- name: Services | Remove env secrets that are no longer configured
+  containers.podman.podman_secret:
+    name: "{{ item }}"
+    state: absent
+  loop: >-
+    {{ _podman_secret_names.stdout_lines
+       | select('match', '^(' ~ (quadlets_services | map(attribute='name')
+                                 | map('regex_escape') | join('|')) ~ ')'
+                          ~ (__quadlets_env_secret_infix | regex_escape))
+       | difference(_env_secrets | map(attribute='name'))
+       | list }}
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  notify: restart quadlet services
+
 - name: Services | Template container unit file for each service
   ansible.builtin.template:
     src: quadlet/service.container.j2

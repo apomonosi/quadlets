@@ -1,3 +1,4 @@
+{% import 'macros.j2' as q %}
 # Managed by Ansible — do not edit manually
 # Role: quadlets | Service: pocket-id
 # https://pocket-id.org
@@ -22,12 +23,15 @@ Environment=VIRTUAL_PROTO=http
 # pocket-id application configuration
 Environment=APP_URL={{ quadlets_pocket_id_issuer_url }}
 Environment=TRUST_PROXY=true
+
+# Keys come from Podman secrets (see tasks/pocket_id.yml), not plain Environment=
+Secret={{ __quadlets_pocket_id_secret_encryption_key }},type=env,target=ENCRYPTION_KEY
 {% if quadlets_pocket_id_static_api_key | length > 0 %}
-Environment=STATIC_API_KEY={{ quadlets_pocket_id_static_api_key }}
+Secret={{ __quadlets_pocket_id_secret_static_api_key }},type=env,target=STATIC_API_KEY
 {% endif %}
 
 {% for key, value in quadlets_pocket_id_extra_env.items() %}
-Environment={{ key }}={{ value }}
+{{ q.env(key, value) }}
 {% endfor %}
 
 # Persistent data volume (SQLite database, uploaded files, config)
@@ -38,4 +42,4 @@ Restart=always
 TimeoutStartSec=60
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

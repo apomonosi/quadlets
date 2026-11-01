@@ -1,7 +1,7 @@
 ---
 # tasks/network.yml — Deploy shared Podman network quadlet
 
-- name: Network | Template {{ quadlets_network_name }}.network quadlet unit
+- name: Network | Template quadlet network unit {{ quadlets_network_name }}
   ansible.builtin.template:
     src: quadlet/proxy.network.j2
     dest: "{{ _quadlets_systemd_dir }}/{{ quadlets_network_name }}.network"

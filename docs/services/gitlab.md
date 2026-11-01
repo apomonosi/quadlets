@@ -4,18 +4,30 @@
 
 ## pocket-id OIDC setup
 
-### 1. Register the OIDC client in pocket-id
+### 1. OIDC client in pocket-id
+
+The role registers this client when you run `--tags pocket_id_clients` (see the
+README): it creates the `gitlab_users` group and an OIDC client with ID `gitlab`
+(`oidc_client_id`, default: the service name) for the `callback_urls`, with PKCE
+enabled (`pkce_enabled`), restricted to that group. The play prints the client
+secret once — store it in Ansible Vault as `vault_gitlab_oidc_secret`.
+
+To create it by hand in the pocket-id admin UI instead, use:
 
 | Field | Value |
 |---|---|
 | Name | `gitlab` |
+| Client ID | `gitlab` |
 | Callback URLs | `https://gitlab.example.com/users/auth/openid_connect/callback` |
 | Allowed User Groups | `gitlab_users` |
 
 ### 2. Configure GitLab
 
 GitLab OIDC is configured via `gitlab.rb` (Omnibus) or `gitlab.yml` (source).
-Using the container, pass configuration via `GITLAB_OMNIBUS_CONFIG`:
+Using the container, pass configuration via `GITLAB_OMNIBUS_CONFIG`. It is Ruby
+evaluated inside the container, so it can read `OIDC_CLIENT_ID` (set by the role from
+`oidc_client_id`) and `OIDC_CLIENT_SECRET` (injected from a Podman secret) from the
+environment:
 
 ```ruby
 gitlab_rails['omniauth_enabled'] = true
@@ -34,8 +46,8 @@ gitlab_rails['omniauth_providers'] = [
       client_auth_method: "query",
       uid_field: "preferred_username",
       client_options: {
-        identifier: "<CLIENT_ID>",
-        secret: "<CLIENT_SECRET>",
+        identifier: ENV["OIDC_CLIENT_ID"],
+        secret: ENV["OIDC_CLIENT_SECRET"],  # injected from the Podman secret
         redirect_uri: "https://gitlab.example.com/users/auth/openid_connect/callback"
       }
     }
@@ -57,9 +69,9 @@ quadlets_services:
     callback_urls:
       - "https://gitlab.example.com/users/auth/openid_connect/callback"
     volumes:
-      - "{{ quadlets_data_base_dir | default('/home/podman/.local/share') }}/gitlab/config:/etc/gitlab:z"
-      - "{{ quadlets_data_base_dir | default('/home/podman/.local/share') }}/gitlab/logs:/var/log/gitlab:z"
-      - "{{ quadlets_data_base_dir | default('/home/podman/.local/share') }}/gitlab/data:/var/opt/gitlab:z"
+      - "gitlab-config:/etc/gitlab"          # named volumes: Podman creates them
+      - "gitlab-logs:/var/log/gitlab"
+      - "gitlab-data:/var/opt/gitlab"
     env:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'https://gitlab.example.com'

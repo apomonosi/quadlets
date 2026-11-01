@@ -1,9 +1,17 @@
 ---
 # tasks/certificates.yml — Dispatch TLS certificate provisioning per virtual host
+# (internal services without virtual_host get no certificate)
+#
+# The includes are dynamic (they loop), so tags on the parent import do not reach
+# the included tasks. apply: tags: [always] makes them run whenever the include
+# itself is selected by the tag filter.
 
 # pocket-id certificate
 - name: Certificates | Provision pocket-id certificate via mkcert
-  ansible.builtin.include_tasks: cert_mkcert.yml
+  ansible.builtin.include_tasks:
+    file: cert_mkcert.yml
+    apply:
+      tags: [always]
   vars:
     _cert_virtual_host: "{{ quadlets_pocket_id_virtual_host }}"
   when:
@@ -11,7 +19,10 @@
     - quadlets_cert_mode == "mkcert"
 
 - name: Certificates | Copy pocket-id BYO certificate
-  ansible.builtin.include_tasks: cert_byo.yml
+  ansible.builtin.include_tasks:
+    file: cert_byo.yml
+    apply:
+      tags: [always]
   vars:
     _cert_virtual_host: "{{ quadlets_pocket_id_virtual_host }}"
     _byo_cert_src: "{{ quadlets_byo_cert_src }}"
@@ -22,21 +33,27 @@
 
 # Per-service certificates
 - name: Certificates | Provision service certificate via mkcert
-  ansible.builtin.include_tasks: cert_mkcert.yml
+  ansible.builtin.include_tasks:
+    file: cert_mkcert.yml
+    apply:
+      tags: [always]
   vars:
     _cert_virtual_host: "{{ item.virtual_host }}"
-  loop: "{{ quadlets_services }}"
+  loop: "{{ quadlets_services | selectattr('virtual_host', 'defined') | selectattr('virtual_host') | list }}"
   loop_control:
     label: "{{ item.virtual_host }}"
   when: "(item.cert_mode | default(quadlets_cert_mode)) == 'mkcert'"
 
 - name: Certificates | Copy service BYO certificate
-  ansible.builtin.include_tasks: cert_byo.yml
+  ansible.builtin.include_tasks:
+    file: cert_byo.yml
+    apply:
+      tags: [always]
   vars:
     _cert_virtual_host: "{{ item.virtual_host }}"
     _byo_cert_src: "{{ item.byo_cert_src | default(quadlets_byo_cert_src) }}"
     _byo_key_src: "{{ item.byo_key_src | default(quadlets_byo_key_src) }}"
-  loop: "{{ quadlets_services }}"
+  loop: "{{ quadlets_services | selectattr('virtual_host', 'defined') | selectattr('virtual_host') | list }}"
   loop_control:
     label: "{{ item.virtual_host }}"
   when: "(item.cert_mode | default(quadlets_cert_mode)) == 'byo'"

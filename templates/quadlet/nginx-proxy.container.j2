@@ -1,3 +1,4 @@
+{% import 'macros.j2' as q %}
 # Managed by Ansible — do not edit manually
 # Role: quadlets | Service: nginx-proxy (jwilder/nginx-proxy)
 #
@@ -33,7 +34,7 @@ Environment=HTTPS_METHOD={{ quadlets_nginx_proxy_https_method }}
 Environment=PROXY_READ_TIMEOUT={{ quadlets_nginx_proxy_read_timeout }}
 Environment=PROXY_CONNECT_TIMEOUT={{ quadlets_nginx_proxy_connect_timeout }}
 {% for key, value in quadlets_nginx_proxy_extra_env.items() %}
-Environment={{ key }}={{ value }}
+{{ q.env(key, value) }}
 {% endfor %}
 
 Label=com.github.nginx-proxy.nginx=true
@@ -44,4 +45,6 @@ Restart=always
 ExecStartPre=/bin/sleep 1
 
 [Install]
-WantedBy=multi-user.target
+# The user systemd manager has no multi-user.target; default.target is what
+# it starts at boot (with lingering enabled).
+WantedBy=default.target

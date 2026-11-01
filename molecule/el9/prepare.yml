@@ -2,36 +2,55 @@
 - name: Prepare
   hosts: all
   gather_facts: true
+  become: true
   tasks:
+    # Runs on the target: a fileglob lookup would list repo files on the controller.
+    - name: Find Rocky repo files
+      ansible.builtin.find:
+        paths: /etc/yum.repos.d
+        patterns: "rocky*.repo"
+      register: _rocky_repos
 
-    - name: Backup all rocky repo files first
+    - name: Back up Rocky repo files (once, keeps the pristine copy)
       ansible.builtin.copy:
-        src: "{{ item }}"
-        dest: "{{ item }}.bak"
-        remote_src: yes
-      loop: "{{ lookup('fileglob', '/etc/yum.repos.d/rocky-*.repo', wantlist=True) }}"
-      #when: backup_repos | default(true) | bool
+        src: "{{ item.path }}"
+        dest: "{{ item.path }}.bak"
+        remote_src: true
+        force: false
+        mode: preserve
+      loop: "{{ _rocky_repos.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
-    - name: Modify all rocky repo files using fileglob
+    - name: Disable mirrorlist in Rocky repo files
       ansible.builtin.replace:
-        path: "{{ item }}"
-        regexp: |
-          ({{ '
-          ' }}^mirrorlist=)
-          ({{ '
-          ' }}^#baseurl=)
-          ({{ '
-          ' }}dl\.rockylinux\.org\/\$contentdir)
-        replace: |
-          \1#mirrorlist=
-          \2baseurl=
-          \3mirror.fysik.dtu.dk/linux/rockylinux
-        backrefs: yes
-      loop: "{{ lookup('fileglob', '/etc/yum.repos.d/rocky-*.repo', wantlist=True) }}"
+        path: "{{ item.path }}"
+        regexp: '^mirrorlist='
+        replace: '#mirrorlist='
+      loop: "{{ _rocky_repos.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Enable baseurl in Rocky repo files
+      ansible.builtin.replace:
+        path: "{{ item.path }}"
+        regexp: '^#baseurl='
+        replace: 'baseurl='
+      loop: "{{ _rocky_repos.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Point baseurl at the DTU mirror
+      ansible.builtin.replace:
+        path: "{{ item.path }}"
+        regexp: 'dl\.rockylinux\.org/\$contentdir'
+        replace: 'mirror.fysik.dtu.dk/linux/rockylinux'
+      loop: "{{ _rocky_repos.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
     - name: Add | epel repo
       ansible.builtin.package:
         name: epel-release
         state: present
-      become: true
 ...

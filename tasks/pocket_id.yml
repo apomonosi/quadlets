@@ -1,7 +1,48 @@
 ---
 # tasks/pocket_id.yml — Deploy the pocket-id OIDC provider quadlet
+#
+# ENCRYPTION_KEY and STATIC_API_KEY are stored as Podman secrets in the quadlets
+# user's secret store and injected with Secret=...,type=env, so they never appear
+# in the unit file or in `podman inspect`. With podman >= 4.7 the module compares
+# the stored value and only recreates a secret when it changed.
 
-- name: pocket-id | Template container unit file
+- name: Pocket-id | Store encryption key as Podman secret
+  containers.podman.podman_secret:
+    name: "{{ __quadlets_pocket_id_secret_encryption_key }}"
+    data: "{{ quadlets_pocket_id_encryption_key }}"
+    state: present
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  no_log: true
+  notify: restart pocket-id
+
+- name: Pocket-id | Store static API key as Podman secret
+  containers.podman.podman_secret:
+    name: "{{ __quadlets_pocket_id_secret_static_api_key }}"
+    data: "{{ quadlets_pocket_id_static_api_key }}"
+    state: present
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  no_log: true
+  notify: restart pocket-id
+  when: quadlets_pocket_id_static_api_key | length > 0
+
+- name: Pocket-id | Remove static API key secret when no key is configured
+  containers.podman.podman_secret:
+    name: "{{ __quadlets_pocket_id_secret_static_api_key }}"
+    state: absent
+  become: true
+  become_user: "{{ quadlets_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ _quadlets_runtime_dir }}"
+  notify: restart pocket-id
+  when: quadlets_pocket_id_static_api_key | length == 0
+
+- name: Pocket-id | Template container unit file
   ansible.builtin.template:
     src: quadlet/pocket-id.container.j2
     dest: "{{ _quadlets_systemd_dir }}/pocket-id.container"
