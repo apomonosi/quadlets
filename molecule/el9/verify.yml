@@ -1,0 +1,197 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+
+  vars_files:
+    - vars/main.yml
+
+  vars:
+    _grafana: "{{ quadlets_services | selectattr('name', 'equalto', 'grafana') | first }}"
+    _sso_url: "https://{{ quadlets_pocket_id_virtual_host }}"
+    _grafana_url: "https://{{ _grafana.virtual_host }}"
+    _units: [nginx-proxy, pocket-id, grafana]
+    _secret_names:
+      - pocket-id-encryption-key
+      - pocket-id-static-api-key
+      - grafana-oidc-client-secret
+    _secret_values:
+      - "{{ quadlets_pocket_id_encryption_key }}"
+      - "{{ quadlets_pocket_id_static_api_key }}"
+      - "{{ _grafana.oidc_client_secret }}"
+    _user_env:
+      XDG_RUNTIME_DIR: "/run/user/{{ _uid }}"
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ _uid }}/bus"
+
+  tasks:
+    - name: Look up the quadlets user
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ quadlets_user }}"
+      become: true
+
+    - name: Record UID and home of the quadlets user
+      ansible.builtin.set_fact:
+        _uid: "{{ getent_passwd[quadlets_user][1] }}"
+        _home: "{{ getent_passwd[quadlets_user][4] }}"
+
+    # ── systemd ────────────────────────────────────────────────────────────────
+
+    - name: Check lingering is enabled
+      ansible.builtin.command:
+        cmd: "loginctl show-user {{ quadlets_user }} -p Linger --value"
+      register: _linger
+      changed_when: false
+      failed_when: _linger.stdout != 'yes'
+
+    # Without a state, systemd_service only reports the unit's properties.
+    - name: Read status of user units
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        scope: user
+      loop: "{{ ['podman.socket'] + (_units | map('regex_replace', '$', '.service') | list) }}"
+      register: _unit_status
+      become: true
+      become_user: "{{ quadlets_user }}"
+      environment: "{{ _user_env }}"
+
+    - name: Check units are active and wanted by default.target (start at boot)
+      ansible.builtin.assert:
+        that:
+          - item.status.ActiveState == 'active'
+          - item.item == 'podman.socket' or
+            'default.target' in (item.status.WantedBy | default('')).split()
+        fail_msg: >-
+          {{ item.item }}: ActiveState={{ item.status.ActiveState }},
+          WantedBy={{ item.status.WantedBy | default('') }}
+      loop: "{{ _unit_status.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Read unprivileged port start
+      ansible.builtin.slurp:
+        src: /proc/sys/net/ipv4/ip_unprivileged_port_start
+      register: _unpriv
+
+    - name: Check rootless Podman may bind the proxy ports
+      ansible.builtin.assert:
+        that: (_unpriv.content | b64decode | trim | int) <= 80
+        fail_msg: "ip_unprivileged_port_start is {{ _unpriv.content | b64decode | trim }}"
+
+    # ── Podman secrets ─────────────────────────────────────────────────────────
+
+    - name: List Podman secrets of the quadlets user
+      ansible.builtin.command:
+        argv: [podman, secret, ls, --noheading, --format, "{% raw %}{{.Name}}{% endraw %}"]
+      register: _secret_ls
+      changed_when: false
+      become: true
+      become_user: "{{ quadlets_user }}"
+      environment: "{{ _user_env }}"
+
+    - name: Check expected secrets exist
+      ansible.builtin.assert:
+        that: _secret_names | difference(_secret_ls.stdout_lines) | length == 0
+        fail_msg: "Missing secrets: {{ _secret_names | difference(_secret_ls.stdout_lines) }}"
+
+    - name: Read deployed quadlet unit files
+      ansible.builtin.slurp:
+        src: "{{ _home }}/.config/containers/systemd/{{ item }}.container"
+      loop: "{{ _units }}"
+      register: _unit_files
+      become: true
+
+    - name: Check no secret value is written into a unit file
+      ansible.builtin.assert:
+        that: _secret_values | select('in', item.content | b64decode) | list | length == 0
+        fail_msg: "{{ item.item }}.container contains a secret value"
+      loop: "{{ _unit_files.results }}"
+      loop_control:
+        label: "{{ item.item }}.container"
+
+    - name: Inspect running containers
+      ansible.builtin.command:
+        argv: "{{ ['podman', 'inspect'] + _units }}"
+      register: _inspect
+      changed_when: false
+      become: true
+      become_user: "{{ quadlets_user }}"
+      environment: "{{ _user_env }}"
+
+    - name: Check no secret value is visible in podman inspect
+      ansible.builtin.assert:
+        that: _secret_values | select('in', _inspect.stdout) | list | length == 0
+        fail_msg: podman inspect output contains a secret value
+
+    # ── Environment inside the containers ──────────────────────────────────────
+
+    - name: Check environment inside containers
+      ansible.builtin.command:
+        argv: [podman, exec, "{{ item.container }}", printenv, "{{ item.var }}"]
+      loop:
+        - {container: pocket-id, var: ENCRYPTION_KEY, expected: "{{ quadlets_pocket_id_encryption_key }}"}
+        - {container: pocket-id, var: STATIC_API_KEY, expected: "{{ quadlets_pocket_id_static_api_key }}"}
+        - {container: grafana, var: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET, expected: "{{ _grafana.oidc_client_secret }}"}
+        - {container: grafana, var: GF_AUTH_GENERIC_OAUTH_SCOPES, expected: "openid profile email"}
+        - {container: grafana, var: GF_AUTH_GENERIC_OAUTH_NAME, expected: "Pocket ID"}
+      loop_control:
+        label: "{{ item.container }}: {{ item.var }}"
+      register: _printenv
+      changed_when: false
+      failed_when: _printenv.rc != 0 or _printenv.stdout != item.expected
+      become: true
+      become_user: "{{ quadlets_user }}"
+      environment: "{{ _user_env }}"
+
+    # ── HTTPS through nginx-proxy (mkcert CA must be trusted) ─────────────────
+
+    - name: Check pocket-id is reachable over trusted HTTPS
+      ansible.builtin.uri:
+        url: "{{ _sso_url }}/healthz"
+        status_code: [200, 204]
+        validate_certs: true
+      register: _sso_health
+      until: _sso_health.status in [200, 204]
+      retries: 12
+      delay: 5
+
+    - name: Check Grafana is reachable over trusted HTTPS
+      ansible.builtin.uri:
+        url: "{{ _grafana_url }}/api/health"
+        status_code: [200]
+        validate_certs: true
+      register: _grafana_health
+      until: _grafana_health.status == 200
+      retries: 24
+      delay: 5
+
+    - name: Check plain HTTP is redirected to HTTPS
+      ansible.builtin.uri:
+        url: "http://{{ _grafana.virtual_host }}/"
+        follow_redirects: none
+        status_code: [301]
+      register: _redirect
+      failed_when: >-
+        _redirect.status != 301 or
+        not (_redirect.location | default('')).startswith(_grafana_url)
+
+    # ── pocket-id provisioning ─────────────────────────────────────────────────
+
+    - name: Fetch the Grafana OIDC client from pocket-id
+      ansible.builtin.uri:
+        url: "{{ _sso_url }}/api/oidc/clients/{{ _grafana.oidc_client_id }}"
+        headers:
+          X-API-Key: "{{ quadlets_pocket_id_static_api_key }}"
+        status_code: [200]
+        validate_certs: true
+      register: _client
+
+    - name: Check the OIDC client matches the service definition
+      ansible.builtin.assert:
+        that:
+          - _client.json.id == _grafana.oidc_client_id
+          - _client.json.callbackURLs == _grafana.callback_urls
+          - _client.json.pkceEnabled | bool
+          - _grafana.pocket_id_group in (_client.json.allowedUserGroups | map(attribute='name') | list)
+        fail_msg: "Unexpected client: {{ _client.json }}"
+...

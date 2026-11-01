@@ -1,0 +1,42 @@
+---
+# Shared by converge.yml and verify.yml so the checks test what was deployed.
+quadlets_user: podman
+quadlets_group: podman
+quadlets_cert_mode: mkcert
+quadlets_pocket_id_virtual_host: sso.test.local
+
+# Required by pocket-id v2 (>= 16 chars). In production, store in Ansible Vault.
+quadlets_pocket_id_encryption_key: "molecule-test-encryption-key-0123456789"
+
+# Injected as STATIC_API_KEY into the pocket-id container and used by Ansible
+# for all API calls (X-API-Key header). Must be >= 16 chars.
+# In production, store in Ansible Vault.
+quadlets_pocket_id_static_api_key: "molecule-test-static-api-key"
+
+# Provision OIDC clients and user groups in converge post_tasks.
+quadlets_pocket_id_provision_clients: true
+
+quadlets_services:
+  - name: grafana
+    image: grafana/grafana:latest
+    virtual_host: grafana.test.local
+    port: 3000
+    oidc_client_id: grafana
+    pocket_id_group: grafana_users
+    callback_urls:
+      - "https://grafana.test.local/login/generic_oauth"
+    # Placeholder so the Podman-secret path is exercised. In a real deployment,
+    # pocket-id generates the secret: run --tags pocket_id_clients, store the
+    # printed secret in Ansible Vault and set oidc_client_secret to it.
+    oidc_client_secret: molecule-placeholder-oidc-secret
+    oidc_client_secret_env: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+    env:
+      GF_SERVER_ROOT_URL: "https://grafana.test.local"
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.test.local/authorize"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.test.local/api/oidc/token"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "https://sso.test.local/api/oidc/userinfo"
+      GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
