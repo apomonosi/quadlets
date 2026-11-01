@@ -5,14 +5,18 @@
 #
 # Prerequisites:
 #   - pocket-id is running and reachable
-#   - quadlets_pocket_id_api_key is set (obtained via pocket_id_bootstrap)
-#   - Each service in quadlets_services has oidc_client_id, pocket_id_group,
-#     and callback_urls defined
+#   - quadlets_pocket_id_static_api_key or quadlets_pocket_id_api_key is set
+#   - Each service in quadlets_services with pocket_id_group / callback_urls defined
 
-- name: clients | Set API authentication header
+- name: clients | Resolve effective API key
   ansible.builtin.set_fact:
     _pocket_id_api_headers:
-      X-API-Key: "{{ quadlets_pocket_id_api_key }}"
+      X-API-Key: >-
+        {{ quadlets_pocket_id_api_key
+           if quadlets_pocket_id_api_key | length > 0
+           else quadlets_pocket_id_static_api_key }}
+
+# ── User groups ───────────────────────────────────────────────────────────────
 
 - name: clients | Fetch existing user groups
   ansible.builtin.uri:
@@ -21,9 +25,16 @@
     headers: "{{ _pocket_id_api_headers }}"
     status_code: [200]
     validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
-  register: _existing_groups
+  register: _existing_groups_raw
 
-- name: clients | Create user group for each service
+- name: clients | Build existing groups name→id map
+  ansible.builtin.set_fact:
+    _groups_by_name: >-
+      {{ _existing_groups_raw.json
+         | default([])
+         | items2dict(key_name='name', value_name='id') }}
+
+- name: clients | Create missing user groups
   ansible.builtin.uri:
     url: "{{ quadlets_pocket_id_issuer_url }}/api/user-groups"
     method: POST
@@ -32,16 +43,29 @@
     body:
       name: "{{ item.pocket_id_group }}"
       friendlyName: "{{ item.name | title }} Users"
-    status_code: [200, 201, 409]
+    status_code: [200, 201]
     validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
   loop: "{{ quadlets_services }}"
   loop_control:
     label: "{{ item.name }}"
   when:
     - item.pocket_id_group is defined
-    - item.pocket_id_group not in
-      (_existing_groups.json | default([]) | map(attribute='name') | list)
-  register: _created_groups
+    - item.pocket_id_group not in _groups_by_name
+  register: _created_groups_raw
+
+- name: clients | Merge newly created groups into name→id map
+  ansible.builtin.set_fact:
+    _groups_by_name: >-
+      {{ _groups_by_name | combine(
+           _created_groups_raw.results
+           | selectattr('skipped', 'undefined')
+           | selectattr('json', 'defined')
+           | map(attribute='json')
+           | items2dict(key_name='name', value_name='id')
+         ) }}
+  when: _created_groups_raw.results | default([]) | length > 0
+
+# ── OIDC clients ──────────────────────────────────────────────────────────────
 
 - name: clients | Fetch existing OIDC clients
   ansible.builtin.uri:
@@ -50,9 +74,16 @@
     headers: "{{ _pocket_id_api_headers }}"
     status_code: [200]
     validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
-  register: _existing_clients
+  register: _existing_clients_raw
 
-- name: clients | Create OIDC client for each new service
+- name: clients | Build existing clients name→id map
+  ansible.builtin.set_fact:
+    _clients_by_name: >-
+      {{ _existing_clients_raw.json
+         | default([])
+         | items2dict(key_name='name', value_name='id') }}
+
+- name: clients | Create missing OIDC clients
   ansible.builtin.uri:
     url: "{{ quadlets_pocket_id_issuer_url }}/api/oidc/clients"
     method: POST
@@ -60,28 +91,60 @@
     body_format: json
     body:
       name: "{{ item.name }}"
-      redirectUris: "{{ item.callback_urls | default([]) }}"
+      callbackURLs: "{{ item.callback_urls | default([]) }}"
       isPublic: false
-      pkceEnabled: false
+      pkceEnabled: "{{ item.pkce_enabled | default(true) }}"
     status_code: [200, 201]
     validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
   loop: "{{ quadlets_services }}"
   loop_control:
     label: "{{ item.name }}"
-  when:
-    - item.name not in
-      (_existing_clients.json | default([]) | map(attribute='name') | list)
-  register: _created_clients
+  when: item.name not in _clients_by_name
+  register: _created_clients_raw
   no_log: true
 
 - name: clients | Display created OIDC client credentials
   ansible.builtin.debug:
     msg: |
       OIDC client created for '{{ item.item.name }}':
-        Client ID:     {{ item.json.clientId | default(item.json.id) }}
-        Client Secret: {{ item.json.clientSecret | default('not returned; retrieve from pocket-id UI') }}
-      Store Client Secret in Ansible Vault as the oidc_client_secret for this service.
-  loop: "{{ _created_clients.results | default([]) }}"
+        Client ID:     {{ item.json.id }}
+        Client Secret: {{ item.json.createdSecret.secret
+                          | default('not returned — retrieve from pocket-id UI') }}
+      Store Client Secret in Ansible Vault as oidc_client_secret for this service.
+  loop: "{{ _created_clients_raw.results | default([]) }}"
   loop_control:
     label: "{{ item.item.name | default('unknown') }}"
   when: not (item.skipped | default(false))
+
+- name: clients | Merge newly created clients into name→id map
+  ansible.builtin.set_fact:
+    _clients_by_name: >-
+      {{ _clients_by_name | combine(
+           _created_clients_raw.results
+           | selectattr('skipped', 'undefined')
+           | selectattr('json', 'defined')
+           | map(attribute='json')
+           | items2dict(key_name='name', value_name='id')
+         ) }}
+  when: _created_clients_raw.results | default([]) | length > 0
+
+# ── Link user groups to OIDC clients ─────────────────────────────────────────
+
+- name: clients | Link user group to OIDC client for each service
+  ansible.builtin.uri:
+    url: "{{ quadlets_pocket_id_issuer_url }}/api/oidc/clients/{{ _clients_by_name[item.name] }}/allowed-user-groups"
+    method: PUT
+    headers: "{{ _pocket_id_api_headers }}"
+    body_format: json
+    body:
+      userGroupIds:
+        - "{{ _groups_by_name[item.pocket_id_group] }}"
+    status_code: [200, 204]
+    validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
+  loop: "{{ quadlets_services }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.pocket_id_group is defined
+    - item.name in _clients_by_name
+    - item.pocket_id_group in _groups_by_name

@@ -22,6 +22,9 @@ Environment=VIRTUAL_PROTO=http
 # pocket-id application configuration
 Environment=APP_URL={{ quadlets_pocket_id_issuer_url }}
 Environment=TRUST_PROXY=true
+{% if quadlets_pocket_id_static_api_key | length > 0 %}
+Environment=STATIC_API_KEY={{ quadlets_pocket_id_static_api_key }}
+{% endif %}
 
 {% for key, value in quadlets_pocket_id_extra_env.items() %}
 Environment={{ key }}={{ value }}

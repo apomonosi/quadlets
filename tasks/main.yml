@@ -48,11 +48,12 @@
     - infrastructure
     - pocket_id
 
-- name: Bootstrap pocket-id admin account
+- name: Verify pocket-id API connectivity
   ansible.builtin.include_tasks: pocket_id_bootstrap.yml
   when:
     - quadlets_pocket_id_enabled | bool
-    - quadlets_pocket_id_bootstrap | bool
+    - (quadlets_pocket_id_api_key | length > 0) or
+      (quadlets_pocket_id_static_api_key | length > 0)
   tags:
     - never
     - pocket_id_bootstrap
@@ -62,7 +63,8 @@
   when:
     - quadlets_pocket_id_enabled | bool
     - quadlets_pocket_id_provision_clients | bool
-    - quadlets_pocket_id_api_key | length > 0
+    - (quadlets_pocket_id_api_key | length > 0) or
+      (quadlets_pocket_id_static_api_key | length > 0)
   tags:
     - never
     - pocket_id_clients
