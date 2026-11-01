@@ -44,9 +44,16 @@
       - item.name is defined
       - item.image is defined
       - item.virtual_host | default('') | length == 0 or item.port is defined
+      - item.secrets | default({}) is mapping
+      # A variable in both env and secrets would land in the unit file in plain text.
+      - (item.secrets | default({})).keys() | intersect((item.env | default({})).keys()) | length == 0
+      - item.oidc_client_secret | default('') | length == 0 or
+        (item.oidc_client_secret_env | default('OIDC_CLIENT_SECRET')) not in (item.secrets | default({}))
     fail_msg: >
       Service entry needs name and image, plus port when virtual_host is set
-      (entries without virtual_host are internal-only): {{ item | to_json }}
+      (entries without virtual_host are internal-only); `secrets` must be a mapping
+      whose variables appear in neither `env` nor oidc_client_secret_env.
+      Service: {{ item.name | default('unnamed') }}
   loop: "{{ quadlets_services }}"
   loop_control:
     label: "{{ item.name | default('unnamed') }}"

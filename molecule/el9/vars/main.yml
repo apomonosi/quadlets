@@ -30,6 +30,9 @@ quadlets_services:
     # printed secret in Ansible Vault and set oidc_client_secret to it.
     oidc_client_secret: molecule-placeholder-oidc-secret
     oidc_client_secret_env: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
+    # Stored as the Podman secret grafana-env-gf-security-admin-password
+    secrets:
+      GF_SECURITY_ADMIN_PASSWORD: molecule-test-admin-password
     env:
       GF_SERVER_ROOT_URL: "https://grafana.test.local"
       GF_AUTH_GENERIC_OAUTH_ENABLED: "true"

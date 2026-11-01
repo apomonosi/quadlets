@@ -34,6 +34,12 @@ Environment=OIDC_CLIENT_ID={{ item.oidc_client_id }}
 # Client secret comes from a Podman secret (see tasks/services.yml)
 Secret={{ item.name }}{{ __quadlets_oidc_secret_suffix }},type=env,target={{ item.oidc_client_secret_env | default('OIDC_CLIENT_SECRET') }}
 {% endif %}
+{% if item.secrets | default({}) | length > 0 %}
+# Env secrets come from Podman secrets (see tasks/services.yml)
+{% for var in item.secrets %}
+Secret={{ item.name }}{{ __quadlets_env_secret_infix }}{{ var | lower | replace('_', '-') }},type=env,target={{ var }}
+{% endfor %}
+{% endif %}
 {% if item.oidc_issuer_url is defined or (quadlets_pocket_id_enabled and _public) %}
 Environment=OIDC_ISSUER_URL={{ item.oidc_issuer_url | default(quadlets_pocket_id_issuer_url) }}
 {% endif %}

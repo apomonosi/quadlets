@@ -56,6 +56,8 @@ quadlets_services:
       - "https://vaultwarden.example.com/identity/connect/oidc-signin"
     volumes:
       - "%h/.local/share/vaultwarden:/data:Z"   # data dir created by the role
+    secrets:                             # stored as Podman secrets, injected as env
+      ADMIN_TOKEN: "{{ vault_vaultwarden_admin_token }}"
     env:
       DOMAIN: "https://vaultwarden.example.com"
       SSO_ENABLED: "true"
@@ -63,7 +65,6 @@ quadlets_services:
       SSO_CLIENT_ID: vaultwarden
       SSO_AUTHORITY: "https://sso.example.com"
       SIGNUPS_ALLOWED: "false"
-      ADMIN_TOKEN: "{{ vault_vaultwarden_admin_token }}"
 ```
 
 !!! tip "Signup policy"

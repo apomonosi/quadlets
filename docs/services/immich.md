@@ -51,10 +51,11 @@ quadlets_services:
     volumes:
       - "%h/.local/share/immich-server:/usr/src/app/upload:Z"   # data dir created by the role
       - "/etc/localtime:/etc/localtime:ro"
+    secrets:                             # stored as Podman secrets, injected as env
+      DB_PASSWORD: "{{ vault_immich_db_pass }}"
     env:
       DB_HOSTNAME: "immich-db"
       DB_USERNAME: immich
-      DB_PASSWORD: "{{ vault_immich_db_pass }}"
       DB_DATABASE_NAME: immich
       REDIS_HOSTNAME: "immich-redis"
       IMMICH_SERVER_URL: "https://immich.example.com"

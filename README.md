@@ -113,6 +113,12 @@ Podman secret `<name>-oidc-client-secret` and injected as the environment variab
 named by `oidc_client_secret_env` (default `OIDC_CLIENT_SECRET`). Set that to the
 variable the app reads (e.g. `GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET`) and do **not**
 repeat the secret in `env`, which is written to the unit file in plain text.
+
+Any other sensitive variable (database passwords, admin tokens, API keys) goes in the
+service's `secrets:` map instead of `env:`. Each entry is stored as the Podman secret
+`<name>-env-<var>` (variable lower-cased, `_` → `-`) and injected under its own name;
+entries removed from the map have their secret deleted. The play fails if a variable
+is listed in both `env` and `secrets`.
 Apps configured through a single config variable can usually read it from the
 environment instead (GitLab: `secret: ENV["OIDC_CLIENT_SECRET"]`).
 
@@ -146,6 +152,8 @@ quadlets_services:
     pkce_enabled: true                   # PKCE on the OIDC client (default: true)
     volumes:
       - "/data/myapp:/data:z"
+    secrets:                             # like env, but each value is stored as a
+      DB_PASSWORD: "{{ vault_db_pass }}" # Podman secret, never in the unit file
     env:                                 # values may contain spaces, quotes and
                                          # newlines (e.g. GITLAB_OMNIBUS_CONFIG: |)
       MY_ENV_VAR: value
@@ -169,10 +177,11 @@ quadlets_services:
     image: docker.io/library/mariadb:11
     volumes:
       - "bookstack-db:/var/lib/mysql"
+    secrets:                             # stored as Podman secrets, injected as env
+      MARIADB_PASSWORD: "{{ vault_bookstack_db_pass }}"
     env:
       MARIADB_DATABASE: bookstack
       MARIADB_USER: bookstack
-      MARIADB_PASSWORD: "{{ vault_bookstack_db_pass }}"
       MARIADB_RANDOM_ROOT_PASSWORD: "1"
   - name: bookstack
     # ...

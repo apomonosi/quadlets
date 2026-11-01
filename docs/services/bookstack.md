@@ -53,10 +53,11 @@ quadlets_services:
     image: docker.io/library/mariadb:11
     volumes:
       - "bookstack-db:/var/lib/mysql"
+    secrets:                             # stored as Podman secrets, injected as env
+      MARIADB_PASSWORD: "{{ vault_bookstack_db_pass }}"
     env:
       MARIADB_DATABASE: bookstack
       MARIADB_USER: bookstack
-      MARIADB_PASSWORD: "{{ vault_bookstack_db_pass }}"
       MARIADB_RANDOM_ROOT_PASSWORD: "1"
 
   - name: bookstack
@@ -71,6 +72,8 @@ quadlets_services:
       - "https://bookstack.example.com/oidc/callback"
     volumes:
       - "%h/.local/share/bookstack:/config:Z"   # data dir created by the role
+    secrets:                             # stored as Podman secrets, injected as env
+      DB_PASS: "{{ vault_bookstack_db_pass }}"
     env:
       APP_URL: "https://bookstack.example.com"
       AUTH_METHOD: "oidc"
@@ -82,7 +85,6 @@ quadlets_services:
       OIDC_END_SESSION_ENDPOINT: "true"
       DB_HOST: "bookstack-db"
       DB_USER: bookstack
-      DB_PASS: "{{ vault_bookstack_db_pass }}"
       DB_DATABASE: bookstack
     depends_on: [bookstack-db]
 ```

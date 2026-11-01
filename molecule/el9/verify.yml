@@ -15,10 +15,12 @@
       - pocket-id-encryption-key
       - pocket-id-static-api-key
       - grafana-oidc-client-secret
+      - grafana-env-gf-security-admin-password
     _secret_values:
       - "{{ quadlets_pocket_id_encryption_key }}"
       - "{{ quadlets_pocket_id_static_api_key }}"
       - "{{ _grafana.oidc_client_secret }}"
+      - "{{ _grafana.secrets.GF_SECURITY_ADMIN_PASSWORD }}"
     _user_env:
       XDG_RUNTIME_DIR: "/run/user/{{ _uid }}"
       DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ _uid }}/bus"
@@ -132,6 +134,7 @@
         - {container: pocket-id, var: ENCRYPTION_KEY, expected: "{{ quadlets_pocket_id_encryption_key }}"}
         - {container: pocket-id, var: STATIC_API_KEY, expected: "{{ quadlets_pocket_id_static_api_key }}"}
         - {container: grafana, var: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET, expected: "{{ _grafana.oidc_client_secret }}"}
+        - {container: grafana, var: GF_SECURITY_ADMIN_PASSWORD, expected: "{{ _grafana.secrets.GF_SECURITY_ADMIN_PASSWORD }}"}
         - {container: grafana, var: GF_AUTH_GENERIC_OAUTH_SCOPES, expected: "openid profile email"}
         - {container: grafana, var: GF_AUTH_GENERIC_OAUTH_NAME, expected: "Pocket ID"}
       loop_control:

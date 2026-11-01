@@ -20,6 +20,8 @@ __quadlets_pocket_id_secret_encryption_key: pocket-id-encryption-key
 __quadlets_pocket_id_secret_static_api_key: pocket-id-static-api-key
 # Per-service OIDC client secrets are named "<service name><suffix>".
 __quadlets_oidc_secret_suffix: -oidc-client-secret
+# Per-service `secrets:` entries are named "<service name><infix><var>".
+__quadlets_env_secret_infix: -env-
 
 # SELinux booleans required for rootless container networking on RHEL.
 __quadlets_sebooleans:
