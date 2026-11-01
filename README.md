@@ -302,14 +302,14 @@ instance; with lingering enabled they start at boot without anyone logging in.
 
 See the `docs/services/` directory for per-service OIDC configuration guides:
 
-- [Audiobookshelf](docs/services/audiobookshelf.md)
-- [BookStack](docs/services/bookstack.md)
-- [GitLab](docs/services/gitlab.md)
-- [Grafana](docs/services/grafana.md)
-- [Immich](docs/services/immich.md)
-- [Komodo](docs/services/komodo.md)
-- [Open WebUI](docs/services/openwebui.md)
-- [Vaultwarden](docs/services/vaultwarden.md)
+- [Audiobookshelf](https://github.com/apomonosi/quadlets/blob/main/docs/services/audiobookshelf.md)
+- [BookStack](https://github.com/apomonosi/quadlets/blob/main/docs/services/bookstack.md)
+- [GitLab](https://github.com/apomonosi/quadlets/blob/main/docs/services/gitlab.md)
+- [Grafana](https://github.com/apomonosi/quadlets/blob/main/docs/services/grafana.md)
+- [Immich](https://github.com/apomonosi/quadlets/blob/main/docs/services/immich.md)
+- [Komodo](https://github.com/apomonosi/quadlets/blob/main/docs/services/komodo.md)
+- [Open WebUI](https://github.com/apomonosi/quadlets/blob/main/docs/services/openwebui.md)
+- [Vaultwarden](https://github.com/apomonosi/quadlets/blob/main/docs/services/vaultwarden.md)
 
 ## Dependencies
 
