@@ -48,6 +48,7 @@ All notable changes to this role are documented here. The format follows
   - internal services: they carry no proxy routing and are reachable by name;
   - HTTPS: trusted through nginx-proxy with the mkcert CA, and plain HTTP redirects;
   - provisioning: the Grafana OIDC client exists with the expected settings and group.
+- This changelog, also listed in the docs site navigation.
 
 ### Changed
 
@@ -79,6 +80,9 @@ All notable changes to this role are documented here. The format follows
 - Running with `--tags` (`pocket_id_clients`, `services`, `certificates`, …) ran none of
   the tasks inside the selected files.
 - The volume paths in the service docs rendered as `/<name>`.
+- The README's links to the service guides were broken on the docs site, where the
+  README is the home page, so `mkdocs build --strict` failed. They now point to the
+  guides on GitHub.
 - Molecule `prepare.yml` failed:
   - its `replace` task used an unsupported option;
   - it looked up repo files on the controller instead of the VM;
