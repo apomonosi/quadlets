@@ -22,12 +22,13 @@ Environment=VIRTUAL_PROTO=http
 # pocket-id application configuration
 Environment=APP_URL={{ quadlets_pocket_id_issuer_url }}
 Environment=TRUST_PROXY=true
+Environment="ENCRYPTION_KEY={{ quadlets_pocket_id_encryption_key | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% if quadlets_pocket_id_static_api_key | length > 0 %}
-Environment=STATIC_API_KEY={{ quadlets_pocket_id_static_api_key }}
+Environment="STATIC_API_KEY={{ quadlets_pocket_id_static_api_key | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% endif %}
 
 {% for key, value in quadlets_pocket_id_extra_env.items() %}
-Environment={{ key }}={{ value }}
+Environment="{{ key }}={{ value | string | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% endfor %}
 
 # Persistent data volume (SQLite database, uploaded files, config)
@@ -38,4 +39,4 @@ Restart=always
 TimeoutStartSec=60
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

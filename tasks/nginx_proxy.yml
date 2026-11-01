@@ -1,6 +1,31 @@
 ---
 # tasks/nginx_proxy.yml — Deploy the nginx-proxy reverse proxy quadlet
 
+# Rootless Podman cannot publish ports below net.ipv4.ip_unprivileged_port_start
+# (1024 by default). Lower it just enough for the configured proxy ports, and
+# never raise it if the host already allows lower ports.
+- name: nginx-proxy | Read current unprivileged port start
+  ansible.builtin.slurp:
+    src: /proc/sys/net/ipv4/ip_unprivileged_port_start
+  register: _unpriv_port_start_raw
+
+- name: nginx-proxy | Compute required unprivileged port start
+  ansible.builtin.set_fact:
+    _unpriv_port_required: >-
+      {{ [quadlets_nginx_proxy_http_port | int,
+          quadlets_nginx_proxy_https_port | int] | min }}
+    _unpriv_port_current: "{{ _unpriv_port_start_raw.content | b64decode | trim | int }}"
+
+- name: nginx-proxy | Allow rootless binding of proxy ports
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_unprivileged_port_start
+    value: "{{ _unpriv_port_required }}"
+    sysctl_file: /etc/sysctl.d/90-quadlets.conf
+    state: present
+    reload: true
+  become: true
+  when: _unpriv_port_current | int > _unpriv_port_required | int
+
 # conf.d/custom.conf is always mounted into the container as a file.
 # Deploy the template when quadlets_nginx_proxy_custom_conf is true,
 # otherwise ensure an empty placeholder exists so the bind-mount succeeds.

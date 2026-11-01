@@ -60,7 +60,7 @@
       ============================================================
       pocket-id is reachable and the API key is valid.
 
-      OIDC clients currently registered: {{ _pocket_id_key_check.json | length }}
+      OIDC clients currently registered: {{ _pocket_id_key_check.json.pagination.totalItems }}
 
       Next steps (if not done yet):
         1. Open {{ quadlets_pocket_id_issuer_url }} in your browser.

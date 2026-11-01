@@ -24,14 +24,15 @@ Internet → nginx-proxy (80/443)
              ↑ docker-gen watches Podman socket → auto-generates vhosts
              │
      ┌───────┴──────────────────────────┐
-     │  pocket-id  │  service-a  │ ...  │   ← All on shared proxy-net
+     │  pocket-id  │  service-a  │ ...  │   ← All on shared `proxy` network
      └──────────────────────────────────┘
            Rootless Podman (user systemd)
 ```
 
-- **nginx-proxy** terminates SSL using certs in `~/.config/containers/certs/`
-- **pocket-id** acts as the OIDC provider; each service has its own client registration
-- **All containers** join a shared `proxy-net` Podman network
+- **nginx-proxy** terminates SSL using certs in `~/.config/nginx-proxy/certs/`
+- **pocket-id** acts as the OIDC provider; each service has its own OIDC client,
+  restricted to its own pocket-id user group
+- **All containers** join a shared `proxy` Podman network
 - **docker-gen** discovers containers by reading `VIRTUAL_HOST` environment variables via the Podman socket
 
 ## Role Variables
@@ -49,14 +50,14 @@ Internet → nginx-proxy (80/443)
 | Variable | Default | Description |
 |---|---|---|
 | `quadlets_systemd_dir` | `~/.config/containers/systemd` | Where quadlet unit files are deployed |
-| `quadlets_certs_dir` | `~/.config/containers/certs` | TLS certificates for nginx-proxy |
+| `quadlets_certs_dir` | `~/.config/nginx-proxy/certs` | TLS certificates for nginx-proxy |
 | `quadlets_data_base_dir` | `~/.local/share` | Base directory for service data volumes |
 
 ### Network
 
 | Variable | Default | Description |
 |---|---|---|
-| `quadlets_network_name` | `proxy-net` | Podman network name |
+| `quadlets_network_name` | `proxy` | Podman network name |
 | `quadlets_network_subnet` | `10.89.0.0/24` | Network CIDR |
 | `quadlets_network_gateway` | `10.89.0.1` | Network gateway |
 
@@ -65,23 +66,40 @@ Internet → nginx-proxy (80/443)
 | Variable | Default | Description |
 |---|---|---|
 | `quadlets_nginx_proxy_enabled` | `true` | Deploy nginx-proxy |
-| `quadlets_nginx_proxy_image` | `nginxproxy/nginx-proxy:latest` | Container image |
+| `quadlets_nginx_proxy_image` | `docker.io/jwilder/nginx-proxy:latest` | Container image |
 | `quadlets_nginx_proxy_http_port` | `80` | Host HTTP port |
 | `quadlets_nginx_proxy_https_port` | `443` | Host HTTPS port |
+| `quadlets_nginx_proxy_https_method` | `redirect` | nginx-proxy `HTTPS_METHOD` |
+| `quadlets_nginx_proxy_read_timeout` | `600` | `PROXY_READ_TIMEOUT` (seconds) |
+| `quadlets_nginx_proxy_connect_timeout` | `600` | `PROXY_CONNECT_TIMEOUT` (seconds) |
 | `quadlets_nginx_proxy_extra_env` | `{}` | Extra env vars for the container |
 | `quadlets_nginx_proxy_custom_conf` | `false` | Deploy custom nginx snippet |
+
+Rootless Podman cannot publish ports below `net.ipv4.ip_unprivileged_port_start`
+(1024 by default). When the proxy ports are lower, the role lowers that sysctl to the
+lowest proxy port (persisted in `/etc/sysctl.d/90-quadlets.conf`). This lets *any*
+local user bind ports from that value upwards; use ports >= 1024 and forward 80/443
+in the firewall if that is not acceptable. A host that already allows lower ports is
+left unchanged.
 
 ### pocket-id
 
 | Variable | Default | Description |
 |---|---|---|
 | `quadlets_pocket_id_enabled` | `true` | Deploy pocket-id |
-| `quadlets_pocket_id_image` | `ghcr.io/stonith404/pocket-id:latest` | Container image |
+| `quadlets_pocket_id_image` | `ghcr.io/pocket-id/pocket-id:v2` | Container image |
 | `quadlets_pocket_id_virtual_host` | `sso.example.com` | FQDN for pocket-id |
-| `quadlets_pocket_id_issuer_url` | `https://{{ pocket_id_virtual_host }}` | OIDC issuer URL |
-| `quadlets_pocket_id_api_key` | `""` | API key (from bootstrap, store in vault) |
-| `quadlets_pocket_id_provision_clients` | `false` | Auto-register OIDC clients |
-| `quadlets_pocket_id_bootstrap` | `false` | Run first-time admin setup |
+| `quadlets_pocket_id_issuer_url` | `https://{{ quadlets_pocket_id_virtual_host }}` | OIDC issuer URL |
+| `quadlets_pocket_id_extra_env` | `{}` | Extra env vars for the container |
+| `quadlets_pocket_id_encryption_key` | `""` | **Required.** `ENCRYPTION_KEY`, >= 16 chars (Vault). Never change after first start |
+| `quadlets_pocket_id_static_api_key` | `""` | `STATIC_API_KEY`, >= 16 chars (Vault). Enables API automation |
+| `quadlets_pocket_id_api_key` | `""` | API key used by Ansible; defaults to the static key when empty |
+| `quadlets_pocket_id_provision_clients` | `false` | Allow `--tags pocket_id_clients` to register clients |
+
+pocket-id has no username/password login (passkeys only), so Ansible cannot create
+an admin account or mint an API key itself. Instead it injects
+`quadlets_pocket_id_static_api_key` as `STATIC_API_KEY`, which pocket-id accepts in
+the `X-API-Key` header as an admin credential.
 
 ### Certificates
 
@@ -102,15 +120,16 @@ quadlets_services:
     image: myapp:latest                  # required — container image
     virtual_host: myapp.example.com      # required — FQDN routed by nginx-proxy
     port: 8080                           # required — container port
-    oidc_client_id: myapp                # OIDC client ID in pocket-id
+    oidc_client_id: myapp                # OIDC client ID in pocket-id (default: name)
     oidc_client_secret: "{{ vault }}"    # OIDC client secret (Vault-encrypt!)
     oidc_issuer_url: ""                  # override issuer (default: pocket-id URL)
-    pocket_id_group: myapp_users         # pocket-id user group name
-    callback_urls:                       # redirect URIs for OIDC client registration
-      - "https://myapp.example.com/auth/callback"
+    pocket_id_group: myapp_users         # pocket-id group allowed to use this client
+    callback_urls:                       # redirect URIs; an OIDC client is registered
+      - "https://myapp.example.com/auth/callback"   # only if this is set
+    pkce_enabled: true                   # PKCE on the OIDC client (default: true)
     volumes:
       - "/data/myapp:/data:z"
-    env:
+    env:                                 # values may contain spaces; they are quoted
       MY_ENV_VAR: value
     cert_mode: mkcert                    # per-service cert mode override
     byo_cert_src: ""                     # per-service BYO cert path
@@ -153,6 +172,11 @@ quadlets_user: podman
 quadlets_pocket_id_virtual_host: sso.mydomain.com
 quadlets_cert_mode: mkcert   # use 'byo' for production
 
+# Generate each with: openssl rand -base64 32   (keep them in vault.yml)
+quadlets_pocket_id_encryption_key: "{{ vault_pocket_id_encryption_key }}"
+quadlets_pocket_id_static_api_key: "{{ vault_pocket_id_static_api_key }}"
+quadlets_pocket_id_provision_clients: true
+
 quadlets_services:
   - name: grafana
     image: grafana/grafana:latest
@@ -182,26 +206,32 @@ quadlets_services:
 ansible-playbook site.yml -i inventory/hosts.yml
 ```
 
-### 5. Bootstrap pocket-id (first run only)
+### 5. Create the pocket-id admin (first run only)
+
+Open `https://sso.mydomain.com/setup` in a browser and register the admin passkey.
+Then check that Ansible can reach the API with the static key:
 
 ```bash
 ansible-playbook site.yml -i inventory/hosts.yml \
-  --tags pocket_id_bootstrap \
-  -e quadlets_pocket_id_bootstrap=true \
-  -e quadlets_pocket_id_admin_email=admin@mydomain.com \
-  -e @vault.yml --ask-vault-pass
+  --tags pocket_id_bootstrap -e @vault.yml --ask-vault-pass
 ```
 
-Save the printed API token in your vault as `quadlets_pocket_id_api_key`.
-
-### 6. Register OIDC clients (optional automation)
+### 6. Register OIDC clients and user groups
 
 ```bash
 ansible-playbook site.yml -i inventory/hosts.yml \
-  --tags pocket_id_clients \
-  -e quadlets_pocket_id_provision_clients=true \
-  -e @vault.yml --ask-vault-pass
+  --tags pocket_id_clients -e @vault.yml --ask-vault-pass
 ```
+
+For every service with `callback_urls`, this creates (if missing) the
+`pocket_id_group` user group and an OIDC client whose ID is `oidc_client_id`
+(default: the service name), then restricts the client to that group. Re-running is
+safe: existing groups and clients are reused and the group link is re-applied.
+
+pocket-id generates the client secret and returns it **only once**, so the play
+prints it for each newly created client. Store it in your vault (e.g.
+`vault_grafana_oidc_secret`) and re-run step 4 so the service picks it up. Add users
+to the group in the pocket-id UI to grant them access.
 
 ## Ansible tags
 
@@ -212,8 +242,11 @@ ansible-playbook site.yml -i inventory/hosts.yml \
 | `nginx_proxy` | Deploy/update nginx-proxy only |
 | `pocket_id` | Deploy/update pocket-id only |
 | `certificates` | Provision/copy TLS certificates only |
-| `pocket_id_bootstrap` | First-run admin account setup (use with `--tags`) |
-| `pocket_id_clients` | Register OIDC clients in pocket-id (use with `--tags`) |
+| `pocket_id_bootstrap` | Verify pocket-id API access with the configured key (only runs when tagged) |
+| `pocket_id_clients` | Register OIDC clients and user groups in pocket-id (only runs when tagged) |
+
+Units are installed with `WantedBy=default.target` in the quadlet user's systemd
+instance; with lingering enabled they start at boot without anyone logging in.
 
 ## Supported services
 

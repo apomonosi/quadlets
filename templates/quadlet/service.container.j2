@@ -26,7 +26,7 @@ Environment=VIRTUAL_PORT={{ item.port }}
 Environment=OIDC_CLIENT_ID={{ item.oidc_client_id }}
 {% endif %}
 {% if item.oidc_client_secret is defined %}
-Environment=OIDC_CLIENT_SECRET={{ item.oidc_client_secret }}
+Environment="OIDC_CLIENT_SECRET={{ item.oidc_client_secret | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% endif %}
 {% if item.oidc_issuer_url is defined or quadlets_pocket_id_enabled %}
 Environment=OIDC_ISSUER_URL={{ item.oidc_issuer_url | default(quadlets_pocket_id_issuer_url) }}
@@ -35,7 +35,7 @@ Environment=OIDC_ISSUER_URL={{ item.oidc_issuer_url | default(quadlets_pocket_id
 {% if item.env | default({}) | length > 0 %}
 # Service-specific environment variables
 {% for key, value in item.env.items() %}
-Environment={{ key }}={{ value }}
+Environment="{{ key }}={{ value | string | replace('\\', '\\\\') | replace('"', '\\"') }}"
 {% endfor %}
 {% endif %}
 
@@ -58,4 +58,4 @@ Restart=always
 TimeoutStartSec=60
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

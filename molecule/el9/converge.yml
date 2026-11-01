@@ -32,6 +32,9 @@
     quadlets_cert_mode: mkcert
     quadlets_pocket_id_virtual_host: sso.test.local
 
+    # Required by pocket-id v2 (>= 16 chars). In production, store in Ansible Vault.
+    quadlets_pocket_id_encryption_key: "molecule-test-encryption-key-0123456789"
+
     # Injected as STATIC_API_KEY into the pocket-id container and used by Ansible
     # for all API calls (X-API-Key header). Must be ≥16 chars.
     # In production, store in Ansible Vault.

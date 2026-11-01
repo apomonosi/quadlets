@@ -52,6 +52,18 @@
   loop_control:
     label: "{{ item.name | default('unnamed') }}"
 
+- name: Preflight | Validate pocket-id keys
+  ansible.builtin.assert:
+    that:
+      - quadlets_pocket_id_encryption_key | length >= 16
+      - quadlets_pocket_id_static_api_key | length == 0 or
+        quadlets_pocket_id_static_api_key | length >= 16
+    fail_msg: >
+      pocket-id requires quadlets_pocket_id_encryption_key (>= 16 chars), and
+      quadlets_pocket_id_static_api_key must be empty or >= 16 chars.
+      Generate values with `openssl rand -base64 32` and store them in Ansible Vault.
+  when: quadlets_pocket_id_enabled | bool
+
 - name: Preflight | Create quadlet systemd unit directory
   ansible.builtin.file:
     path: "{{ _quadlets_systemd_dir }}"

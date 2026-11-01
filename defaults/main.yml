@@ -44,13 +44,19 @@ quadlets_nginx_proxy_custom_conf: false
 
 # ── pocket-id SSO ─────────────────────────────────────────────────────────────
 quadlets_pocket_id_enabled: true
-quadlets_pocket_id_image: "ghcr.io/stonith404/pocket-id:latest"
+quadlets_pocket_id_image: "ghcr.io/pocket-id/pocket-id:v2"
 # FQDN under which pocket-id is reachable through nginx-proxy.
 quadlets_pocket_id_virtual_host: "sso.example.com"
 # Public OIDC issuer URL used by services for endpoint discovery.
 quadlets_pocket_id_issuer_url: "https://{{ quadlets_pocket_id_virtual_host }}"
 # Additional environment variables for the pocket-id container.
 quadlets_pocket_id_extra_env: {}
+
+# Key used by pocket-id to encrypt sensitive data at rest. REQUIRED by pocket-id
+# v2 (the container refuses to start without it). Minimum 16 characters.
+# Generate with `openssl rand -base64 32` and store in Ansible Vault.
+# Never change it after first start — existing encrypted data becomes unreadable.
+quadlets_pocket_id_encryption_key: ""
 
 # Static API key injected into the pocket-id container as STATIC_API_KEY env var.
 # pocket-id accepts this value via X-API-Key header without any browser session.
@@ -64,10 +70,6 @@ quadlets_pocket_id_static_api_key: ""
 # separately created API key from the pocket-id UI.
 # Required when quadlets_pocket_id_provision_clients: true.
 quadlets_pocket_id_api_key: ""
-
-# Verify API connectivity and key validity (run once after first deploy).
-# Use: ansible-playbook ... --tags pocket_id_bootstrap
-quadlets_pocket_id_bootstrap: false
 
 # Automatically register OIDC clients and user groups via the pocket-id API.
 # Requires quadlets_pocket_id_api_key (or quadlets_pocket_id_static_api_key) to be set.
@@ -100,11 +102,12 @@ quadlets_byo_key_src: ""
 #   port         — internal container port nginx-proxy proxies to
 #
 # Optional keys:
-#   oidc_client_id      — OIDC client ID registered in pocket-id
+#   oidc_client_id      — OIDC client ID registered in pocket-id (default: name)
 #   oidc_client_secret  — OIDC client secret (Vault-encrypt!)
 #   oidc_issuer_url     — override OIDC issuer (default: quadlets_pocket_id_issuer_url)
 #   pocket_id_group     — pocket-id user group name for this service
-#   callback_urls       — redirect URIs for pocket-id client registration
+#   callback_urls       — redirect URIs; an OIDC client is registered in
+#                         pocket-id only for services that define this
 #   pkce_enabled        — enable PKCE for this OIDC client (default: true)
 #   volumes             — list of "host:container[:options]" volume strings
 #   env                 — dict of extra environment variables
