@@ -19,11 +19,26 @@
         state: present
       become: true
 
+    - name: Add test domains to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 sso.test.local grafana.test.local"
+        state: present
+      become: true
+
   vars:
     quadlets_user: podman
     quadlets_group: podman
     quadlets_cert_mode: mkcert
     quadlets_pocket_id_virtual_host: sso.test.local
+
+    # Injected as STATIC_API_KEY into the pocket-id container and used by Ansible
+    # for all API calls (X-API-Key header). Must be ≥16 chars.
+    # In production, store in Ansible Vault.
+    quadlets_pocket_id_static_api_key: "molecule-test-static-api-key"
+
+    # Provision OIDC clients and user groups in post_tasks below.
+    quadlets_pocket_id_provision_clients: true
 
     quadlets_services:
       - name: grafana
@@ -31,16 +46,19 @@
         virtual_host: grafana.test.local
         port: 3000
         oidc_client_id: grafana
-        oidc_client_secret: molecule-test-secret
         pocket_id_group: grafana_users
         callback_urls:
           - "https://grafana.test.local/login/generic_oauth"
+        # oidc_client_secret is intentionally absent here — pocket-id generates it.
+        # After running --tags pocket_id_clients, record the printed secret, store it
+        # in Ansible Vault, then redeploy with:
+        #   oidc_client_secret: "{{ vault_grafana_oidc_secret }}"
+        #   env.GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "{{ vault_grafana_oidc_secret }}"
         env:
           GF_SERVER_ROOT_URL: "https://grafana.test.local"
           GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
           GF_AUTH_GENERIC_OAUTH_NAME: "Pocket ID"
           GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
-          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: molecule-test-secret
           GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email"
           GF_AUTH_GENERIC_OAUTH_AUTH_URL: "https://sso.test.local/authorize"
           GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.test.local/api/oidc/token"
@@ -51,4 +69,15 @@
     - name: Include | quadlets role
       ansible.builtin.include_role:
         name: "quadlets"
+
+  post_tasks:
+    - name: Verify pocket-id API connectivity
+      ansible.builtin.include_role:
+        name: quadlets
+        tasks_from: pocket_id_bootstrap.yml
+
+    - name: Provision OIDC clients and user groups
+      ansible.builtin.include_role:
+        name: quadlets
+        tasks_from: pocket_id_clients.yml
 ...

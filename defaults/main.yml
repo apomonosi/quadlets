@@ -52,21 +52,25 @@ quadlets_pocket_id_issuer_url: "https://{{ quadlets_pocket_id_virtual_host }}"
 # Additional environment variables for the pocket-id container.
 quadlets_pocket_id_extra_env: {}
 
-# First-run bootstrap: creates the admin account and an API token.
-# Set true only on first run, then use: ansible-playbook ... --tags pocket_id_bootstrap
-quadlets_pocket_id_bootstrap: false
-quadlets_pocket_id_admin_email: ""
-quadlets_pocket_id_admin_password: ""    # Vault-encrypt this value
-quadlets_pocket_id_admin_first_name: "Admin"
-quadlets_pocket_id_admin_last_name: "User"
+# Static API key injected into the pocket-id container as STATIC_API_KEY env var.
+# pocket-id accepts this value via X-API-Key header without any browser session.
+# Minimum 16 characters. Store in Ansible Vault. Leave empty to skip injection.
+# When set, this value is automatically used as quadlets_pocket_id_api_key below
+# if that variable is left empty.
+quadlets_pocket_id_static_api_key: ""
 
-# API token for the pocket-id REST API.
-# Obtained during bootstrap; store in Ansible Vault.
-# Required when quadlets_pocket_id_provision_clients: true
+# API key for pocket-id REST API calls from Ansible.
+# Set this to the same value as quadlets_pocket_id_static_api_key, or to a
+# separately created API key from the pocket-id UI.
+# Required when quadlets_pocket_id_provision_clients: true.
 quadlets_pocket_id_api_key: ""
 
+# Verify API connectivity and key validity (run once after first deploy).
+# Use: ansible-playbook ... --tags pocket_id_bootstrap
+quadlets_pocket_id_bootstrap: false
+
 # Automatically register OIDC clients and user groups via the pocket-id API.
-# Requires quadlets_pocket_id_api_key to be set.
+# Requires quadlets_pocket_id_api_key (or quadlets_pocket_id_static_api_key) to be set.
 # Use: ansible-playbook ... --tags pocket_id_clients
 quadlets_pocket_id_provision_clients: false
 
@@ -101,6 +105,7 @@ quadlets_byo_key_src: ""
 #   oidc_issuer_url     — override OIDC issuer (default: quadlets_pocket_id_issuer_url)
 #   pocket_id_group     — pocket-id user group name for this service
 #   callback_urls       — redirect URIs for pocket-id client registration
+#   pkce_enabled        — enable PKCE for this OIDC client (default: true)
 #   volumes             — list of "host:container[:options]" volume strings
 #   env                 — dict of extra environment variables
 #   cert_mode           — per-service cert mode override (default: quadlets_cert_mode)
