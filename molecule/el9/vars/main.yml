@@ -40,3 +40,8 @@ quadlets_services:
       GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "https://sso.test.local/api/oidc/token"
       GF_AUTH_GENERIC_OAUTH_API_URL: "https://sso.test.local/api/oidc/userinfo"
       GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
+
+  # Internal-only (no virtual_host): no proxy routing or certificate, but other
+  # containers reach it by name on the proxy network.
+  - name: whoami-internal
+    image: docker.io/traefik/whoami:latest

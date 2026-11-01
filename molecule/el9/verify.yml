@@ -10,7 +10,7 @@
     _grafana: "{{ quadlets_services | selectattr('name', 'equalto', 'grafana') | first }}"
     _sso_url: "https://{{ quadlets_pocket_id_virtual_host }}"
     _grafana_url: "https://{{ _grafana.virtual_host }}"
-    _units: [nginx-proxy, pocket-id, grafana]
+    _units: [nginx-proxy, pocket-id, grafana, whoami-internal]
     _secret_names:
       - pocket-id-encryption-key
       - pocket-id-static-api-key
@@ -139,6 +139,32 @@
       register: _printenv
       changed_when: false
       failed_when: _printenv.rc != 0 or _printenv.stdout != item.expected
+      become: true
+      become_user: "{{ quadlets_user }}"
+      environment: "{{ _user_env }}"
+
+    # ── Internal-only service ──────────────────────────────────────────────────
+
+    - name: Read environment of the internal service
+      ansible.builtin.command:
+        argv: [podman, inspect, --format, "{% raw %}{{json .Config.Env}}{% endraw %}", whoami-internal]
+      register: _internal_env
+      changed_when: false
+      become: true
+      become_user: "{{ quadlets_user }}"
+      environment: "{{ _user_env }}"
+
+    - name: Check the internal service is not routed by nginx-proxy
+      ansible.builtin.assert:
+        that: _internal_env.stdout | from_json | select('match', 'VIRTUAL_(HOST|PORT)=') | list | length == 0
+        fail_msg: "whoami-internal has proxy routing env: {{ _internal_env.stdout }}"
+
+    - name: Check other containers reach the internal service by name
+      ansible.builtin.command:
+        argv: [podman, exec, pocket-id, wget, -qO-, "http://whoami-internal/"]
+      register: _internal_http
+      changed_when: false
+      failed_when: _internal_http.rc != 0 or 'Hostname:' not in _internal_http.stdout
       become: true
       become_user: "{{ quadlets_user }}"
       environment: "{{ _user_env }}"

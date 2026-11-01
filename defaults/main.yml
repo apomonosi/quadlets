@@ -97,10 +97,14 @@ quadlets_byo_key_src: ""
 # Full schema and per-service examples in README.md and docs/services/.
 #
 # Required keys per service:
-#   name         — systemd unit name (e.g. "nextcloud")
+#   name         — systemd unit name and container name (e.g. "nextcloud")
 #   image        — container image (e.g. "nextcloud:29")
+#
+# Public services (routed by nginx-proxy, with a TLS certificate):
 #   virtual_host — FQDN routed by nginx-proxy (e.g. "nextcloud.example.com")
-#   port         — internal container port nginx-proxy proxies to
+#   port         — container port nginx-proxy proxies to (required with virtual_host)
+# Entries without virtual_host are internal-only (e.g. databases): no proxy
+# routing or certificate; other containers reach them by name on the network.
 #
 # Optional keys:
 #   oidc_client_id      — OIDC client ID registered in pocket-id (default: name)

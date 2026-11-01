@@ -131,10 +131,10 @@ environment instead (GitLab: `secret: ENV["OIDC_CLIENT_SECRET"]`).
 
 ```yaml
 quadlets_services:
-  - name: myapp                          # required — used as the systemd unit name
+  - name: myapp                          # required — systemd unit and container name
     image: myapp:latest                  # required — container image
-    virtual_host: myapp.example.com      # required — FQDN routed by nginx-proxy
-    port: 8080                           # required — container port
+    virtual_host: myapp.example.com      # FQDN routed by nginx-proxy; omit for internal-only
+    port: 8080                           # container port; required with virtual_host
     oidc_client_id: myapp                # OIDC client ID in pocket-id (default: name)
     oidc_client_secret: "{{ vault }}"    # OIDC client secret (Vault-encrypt!), stored
                                          # as a Podman secret, not in the unit file
@@ -154,6 +154,29 @@ quadlets_services:
     byo_key_src: ""                      # per-service BYO key path
     depends_on: []                       # other unit names → After=/Requires=
     extra_labels: {}                     # additional container labels
+```
+
+#### Internal services
+
+An entry without `virtual_host` is internal-only: nginx-proxy does not route it and
+no certificate is made, but it still joins the `proxy` network, where other
+containers reach it by its `name`. Use this for databases and caches, and list it in
+the app's `depends_on`:
+
+```yaml
+quadlets_services:
+  - name: bookstack-db                   # reachable as bookstack-db:3306
+    image: docker.io/library/mariadb:11
+    volumes:
+      - "bookstack-db:/var/lib/mysql"
+    env:
+      MARIADB_DATABASE: bookstack
+      MARIADB_USER: bookstack
+      MARIADB_PASSWORD: "{{ vault_bookstack_db_pass }}"
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+  - name: bookstack
+    # ...
+    depends_on: [bookstack-db]
 ```
 
 ## Quick start

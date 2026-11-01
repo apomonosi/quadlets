@@ -1,10 +1,11 @@
 {% import 'macros.j2' as q %}
+{% set _public = item.virtual_host | default('') | length > 0 %}
 # Managed by Ansible — do not edit manually
-# Role: quadlets | Service: {{ item.name }}
+# Role: quadlets | Service: {{ item.name }}{% if not _public %} (internal only){% endif +%}
 
 [Unit]
 Description=Quadlet service: {{ item.name }}
-After=network-online.target{% if quadlets_pocket_id_enabled %} pocket-id.service{% endif +%}
+After=network-online.target{% if quadlets_pocket_id_enabled and _public %} pocket-id.service{% endif +%}
 Wants=network-online.target
 {% if item.depends_on | default([]) | length > 0 %}
 After={{ item.depends_on | map('regex_replace', '$', '.service') | join(' ') }}
@@ -16,11 +17,14 @@ Image={{ item.image }}
 ContainerName={{ item.name }}
 AutoUpdate=registry
 
+# Other containers on this network reach the service by its ContainerName.
 Network={{ quadlets_network_name }}.network
+{% if _public %}
 
 # nginx-proxy virtual host routing — docker-gen reads VIRTUAL_HOST to build upstreams
 Environment=VIRTUAL_HOST={{ item.virtual_host }}
 Environment=VIRTUAL_PORT={{ item.port }}
+{% endif %}
 
 {% if item.oidc_client_id is defined %}
 # pocket-id OIDC credentials
@@ -30,7 +34,7 @@ Environment=OIDC_CLIENT_ID={{ item.oidc_client_id }}
 # Client secret comes from a Podman secret (see tasks/services.yml)
 Secret={{ item.name }}{{ __quadlets_oidc_secret_suffix }},type=env,target={{ item.oidc_client_secret_env | default('OIDC_CLIENT_SECRET') }}
 {% endif %}
-{% if item.oidc_issuer_url is defined or quadlets_pocket_id_enabled %}
+{% if item.oidc_issuer_url is defined or (quadlets_pocket_id_enabled and _public) %}
 Environment=OIDC_ISSUER_URL={{ item.oidc_issuer_url | default(quadlets_pocket_id_issuer_url) }}
 {% endif %}
 

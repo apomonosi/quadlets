@@ -1,5 +1,6 @@
 ---
 # tasks/certificates.yml — Dispatch TLS certificate provisioning per virtual host
+# (internal services without virtual_host get no certificate)
 #
 # The includes are dynamic (they loop), so tags on the parent import do not reach
 # the included tasks. apply: tags: [always] makes them run whenever the include
@@ -38,7 +39,7 @@
       tags: [always]
   vars:
     _cert_virtual_host: "{{ item.virtual_host }}"
-  loop: "{{ quadlets_services }}"
+  loop: "{{ quadlets_services | selectattr('virtual_host', 'defined') | selectattr('virtual_host') | list }}"
   loop_control:
     label: "{{ item.virtual_host }}"
   when: "(item.cert_mode | default(quadlets_cert_mode)) == 'mkcert'"
@@ -52,7 +53,7 @@
     _cert_virtual_host: "{{ item.virtual_host }}"
     _byo_cert_src: "{{ item.byo_cert_src | default(quadlets_byo_cert_src) }}"
     _byo_key_src: "{{ item.byo_key_src | default(quadlets_byo_key_src) }}"
-  loop: "{{ quadlets_services }}"
+  loop: "{{ quadlets_services | selectattr('virtual_host', 'defined') | selectattr('virtual_host') | list }}"
   loop_control:
     label: "{{ item.virtual_host }}"
   when: "(item.cert_mode | default(quadlets_cert_mode)) == 'byo'"

@@ -43,11 +43,10 @@
     that:
       - item.name is defined
       - item.image is defined
-      - item.virtual_host is defined
-      - item.port is defined
+      - item.virtual_host | default('') | length == 0 or item.port is defined
     fail_msg: >
-      Service entry missing required fields (name, image, virtual_host, port):
-      {{ item | to_json }}
+      Service entry needs name and image, plus port when virtual_host is set
+      (entries without virtual_host are internal-only): {{ item | to_json }}
   loop: "{{ quadlets_services }}"
   loop_control:
     label: "{{ item.name | default('unnamed') }}"

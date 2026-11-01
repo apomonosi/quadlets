@@ -62,12 +62,14 @@ quadlets_services:
 
 !!! note "Additional services"
     Immich requires a PostgreSQL database with the `pgvecto-rs` extension and a Redis
-    instance, reachable as `DB_HOSTNAME` / `REDIS_HOSTNAME` on the `proxy` network.
-    The role requires `virtual_host` on every service entry, so deploy them as their
-    own quadlets (with `Network=proxy.network`) and add them to `depends_on` here.
+    instance. Add them as service entries named `immich-db` and `immich-redis`
+    **without** `virtual_host`: such entries are internal-only (not exposed by
+    nginx-proxy, no certificate) but reachable by name on the `proxy` network as
+    `DB_HOSTNAME` / `REDIS_HOSTNAME`. Add `depends_on: [immich-db, immich-redis]` here.
     OAuth is configured in the Immich UI, so no `oidc_client_secret` is needed.
 
 !!! tip "Machine learning"
-    Deploy `ghcr.io/immich-app/immich-machine-learning:release` as a separate quadlet
-    for smart search and face recognition. Connect it to the same network and set
-    `MACHINE_LEARNING_URL` in the server's env.
+    Add `ghcr.io/immich-app/immich-machine-learning:release` as another internal
+    service entry (e.g. `immich-ml`, no `virtual_host`) for smart search and face
+    recognition, and set `MACHINE_LEARNING_URL: "http://immich-ml:3003"` in the
+    server's env.

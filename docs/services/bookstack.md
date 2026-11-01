@@ -48,6 +48,17 @@ group names in the ID token by default.
 
 ```yaml
 quadlets_services:
+  # Internal-only (no virtual_host): reachable as bookstack-db on the proxy network
+  - name: bookstack-db
+    image: docker.io/library/mariadb:11
+    volumes:
+      - "bookstack-db:/var/lib/mysql"
+    env:
+      MARIADB_DATABASE: bookstack
+      MARIADB_USER: bookstack
+      MARIADB_PASSWORD: "{{ vault_bookstack_db_pass }}"
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+
   - name: bookstack
     image: lscr.io/linuxserver/bookstack:latest
     virtual_host: bookstack.example.com
@@ -73,10 +84,11 @@ quadlets_services:
       DB_USER: bookstack
       DB_PASS: "{{ vault_bookstack_db_pass }}"
       DB_DATABASE: bookstack
+    depends_on: [bookstack-db]
 ```
 
 !!! tip
-    BookStack requires a MariaDB/MySQL database reachable as `DB_HOST` on the `proxy`
-    network. The role requires `virtual_host` on every service entry, so deploy the
-    database as its own quadlet (e.g. `bookstack-db.container` with
-    `Network=proxy.network`) and add `depends_on: [bookstack-db]` here.
+    BookStack requires a MariaDB/MySQL database. The `bookstack-db` entry above has no
+    `virtual_host`, so it is internal-only: nginx-proxy does not expose it and no
+    certificate is made, but BookStack reaches it as `DB_HOST: bookstack-db` on the
+    `proxy` network. `depends_on` starts it first.
