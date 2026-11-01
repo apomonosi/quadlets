@@ -1,3 +1,4 @@
+{% import 'macros.j2' as q %}
 # Managed by Ansible — do not edit manually
 # Role: quadlets | Service: pocket-id
 # https://pocket-id.org
@@ -30,7 +31,7 @@ Secret={{ __quadlets_pocket_id_secret_static_api_key }},type=env,target=STATIC_A
 {% endif %}
 
 {% for key, value in quadlets_pocket_id_extra_env.items() %}
-Environment="{{ key }}={{ value | string | replace('\\', '\\\\') | replace('"', '\\"') }}"
+{{ q.env(key, value) }}
 {% endfor %}
 
 # Persistent data volume (SQLite database, uploaded files, config)

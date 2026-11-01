@@ -146,7 +146,8 @@ quadlets_services:
     pkce_enabled: true                   # PKCE on the OIDC client (default: true)
     volumes:
       - "/data/myapp:/data:z"
-    env:                                 # values may contain spaces; they are quoted
+    env:                                 # values may contain spaces, quotes and
+                                         # newlines (e.g. GITLAB_OMNIBUS_CONFIG: |)
       MY_ENV_VAR: value
     cert_mode: mkcert                    # per-service cert mode override
     byo_cert_src: ""                     # per-service BYO cert path

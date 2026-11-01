@@ -1,3 +1,4 @@
+{% import 'macros.j2' as q %}
 # Managed by Ansible — do not edit manually
 # Role: quadlets | Service: {{ item.name }}
 
@@ -36,7 +37,7 @@ Environment=OIDC_ISSUER_URL={{ item.oidc_issuer_url | default(quadlets_pocket_id
 {% if item.env | default({}) | length > 0 %}
 # Service-specific environment variables
 {% for key, value in item.env.items() %}
-Environment="{{ key }}={{ value | string | replace('\\', '\\\\') | replace('"', '\\"') }}"
+{{ q.env(key, value) }}
 {% endfor %}
 {% endif %}
 
