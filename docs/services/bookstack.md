@@ -4,19 +4,29 @@
 
 ## pocket-id OIDC setup
 
-### 1. Register the OIDC client in pocket-id
+### 1. OIDC client in pocket-id
+
+The role registers this client when you run `--tags pocket_id_clients` (see the
+README): it creates the `bookstack_users` group and an OIDC client with ID `bookstack`
+(`oidc_client_id`, default: the service name) for the `callback_urls`, with PKCE
+enabled (`pkce_enabled`), restricted to that group. The play prints the client
+secret once — store it in Ansible Vault as `vault_bookstack_oidc_secret`.
+
+To create it by hand in the pocket-id admin UI instead, use:
 
 | Field | Value |
 |---|---|
 | Name | `bookstack` |
+| Client ID | `bookstack` |
 | Callback URLs | `https://bookstack.example.com/oidc/callback` |
 | Allowed User Groups | `bookstack_users` |
-| PKCE | Recommended (enable in pocket-id) |
+| PKCE | Enabled |
 
 ### 2. Configure BookStack via environment variables
 
-BookStack is configured entirely through environment variables. Add the following
-to the `env:` block in your service definition:
+BookStack is configured entirely through environment variables. The role already sets
+`OIDC_CLIENT_ID` (from `oidc_client_id`) and injects `OIDC_CLIENT_SECRET` from a Podman
+secret; add the rest to the `env:` block in your service definition:
 
 | Variable | Value |
 |---|---|
@@ -24,8 +34,8 @@ to the `env:` block in your service definition:
 | `AUTH_AUTO_INITIATE` | `true` |
 | `OIDC_NAME` | `Pocket ID` |
 | `OIDC_DISPLAY_NAME_CLAIMS` | `name` |
-| `OIDC_CLIENT_ID` | Client ID from pocket-id |
-| `OIDC_CLIENT_SECRET` | Client Secret from pocket-id |
+| `OIDC_CLIENT_ID` | set by the role from `oidc_client_id` |
+| `OIDC_CLIENT_SECRET` | injected by the role from `oidc_client_secret` |
 | `OIDC_ISSUER` | `https://sso.example.com` |
 | `OIDC_ISSUER_DISCOVER` | `true` |
 | `OIDC_END_SESSION_ENDPOINT` | `true` |
@@ -49,14 +59,13 @@ quadlets_services:
     callback_urls:
       - "https://bookstack.example.com/oidc/callback"
     volumes:
-      - "{{ quadlets_data_base_dir | default('/home/podman/.local/share') }}/bookstack/config:/config:z"
+      - "%h/.local/share/bookstack:/config:Z"   # data dir created by the role
     env:
       APP_URL: "https://bookstack.example.com"
       AUTH_METHOD: "oidc"
       AUTH_AUTO_INITIATE: "true"
       OIDC_NAME: "Pocket ID"
       OIDC_DISPLAY_NAME_CLAIMS: "name"
-      OIDC_CLIENT_ID: bookstack          # replaced at runtime via oidc_client_id
       OIDC_ISSUER: "https://sso.example.com"
       OIDC_ISSUER_DISCOVER: "true"
       OIDC_END_SESSION_ENDPOINT: "true"
@@ -67,5 +76,7 @@ quadlets_services:
 ```
 
 !!! tip
-    BookStack requires a MariaDB/MySQL database. Deploy it as a separate service entry
-    with `depends_on: []` and no `VIRTUAL_HOST` (omit `virtual_host` or route internally).
+    BookStack requires a MariaDB/MySQL database reachable as `DB_HOST` on the `proxy`
+    network. The role requires `virtual_host` on every service entry, so deploy the
+    database as its own quadlet (e.g. `bookstack-db.container` with
+    `Network=proxy.network`) and add `depends_on: [bookstack-db]` here.

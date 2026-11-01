@@ -17,7 +17,7 @@ Internet ─────────► nginx-proxy (port 80/443)               
                   │  │  (SSO/OIDC)  │  │              │  │          │  │
                   │  └──────────────┘  └──────────────┘  └──────────┘  │
                   │                                                     │
-                  │         All containers on shared proxy-net          │
+                  │       All containers on the shared proxy network    │
                   └─────────────────────────────────────────────────────┘
                                 Rootless Podman (user systemd)
 ```
@@ -33,9 +33,12 @@ Internet ─────────► nginx-proxy (port 80/443)               
 ## Security model
 
 - All containers run as a non-root `podman` user (rootless Podman)
-- SSL terminates at nginx-proxy; inter-container traffic is HTTP on the private `proxy-net` network
+- SSL terminates at nginx-proxy; inter-container traffic is HTTP on the private `proxy` network
 - Each service has its own OIDC client registration and user group in pocket-id
-- Secrets (OIDC client secrets, admin passwords) are stored in Ansible Vault
+- Secrets (pocket-id encryption key and static API key, OIDC client secrets) are kept in
+  Ansible Vault and stored on the host as Podman secrets, so they never appear in unit
+  files or `podman inspect`
+- pocket-id has no passwords: users, including the admin, sign in with passkeys
 
 ## Technology stack
 
