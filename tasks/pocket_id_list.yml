@@ -5,7 +5,7 @@
 #
 # pocket-id caps pagination[limit] at 100, so larger lists need several requests.
 
-- name: "pocket-id list | Fetch first page of {{ _list_path }}"
+- name: "Pocket-id list | Fetch first page of {{ _list_path }}"
   ansible.builtin.uri:
     url: "{{ quadlets_pocket_id_issuer_url }}{{ _list_path }}?pagination%5Blimit%5D=100&pagination%5Bpage%5D=1"
     method: GET
@@ -14,7 +14,7 @@
     validate_certs: "{{ quadlets_cert_mode != 'mkcert' }}"
   register: _list_first
 
-- name: "pocket-id list | Fetch remaining pages of {{ _list_path }}"
+- name: "Pocket-id list | Fetch remaining pages of {{ _list_path }}"
   ansible.builtin.uri:
     url: "{{ quadlets_pocket_id_issuer_url }}{{ _list_path }}?pagination%5Blimit%5D=100&pagination%5Bpage%5D={{ item }}"
     method: GET
@@ -24,7 +24,7 @@
   loop: "{{ range(2, (_list_first.json.pagination.totalPages | int) + 1) | list }}"
   register: _list_rest
 
-- name: "pocket-id list | Combine pages of {{ _list_path }}"
+- name: "Pocket-id list | Combine pages of {{ _list_path }}"
   ansible.builtin.set_fact:
     _list_items: >-
       {{ _list_first.json.data

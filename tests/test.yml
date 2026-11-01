@@ -2,12 +2,13 @@
 # Example test playbook for the quadlets role.
 # Deploys the full stack with mkcert certificates and a sample Grafana service.
 #
-# Usage:
-#   ansible-playbook tests/test.yml -i tests/inventory
+# Usage (from the repository root, which must be named "quadlets"):
+#   ANSIBLE_ROLES_PATH=.. ansible-playbook tests/test.yml -i tests/inventory
 #
 # For production, create a proper inventory and group_vars instead.
 
-- hosts: localhost
+- name: Test the quadlets role
+  hosts: localhost
   remote_user: root
   vars:
     quadlets_user: podman
@@ -37,4 +38,4 @@
           GF_AUTH_GENERIC_OAUTH_USE_PKCE: "true"
 
   roles:
-    - role: "{{ playbook_dir }}/.."
+    - role: quadlets

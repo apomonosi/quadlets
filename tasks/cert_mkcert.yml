@@ -8,21 +8,21 @@
 #   1. Generate the cert as the quadlets_user (mkcert auto-creates the CA on
 #      first run and stores it under _mkcert_caroot).
 #   2. Copy rootCA.pem to the system trust anchors directory as root.
-#   3. Run update-ca-trust as root only when the CA file changed.
+#   3. Run update-ca-trust as root (handler) only when the CA file changed.
 
-- name: mkcert | Check if binary is already installed
+- name: Mkcert | Check if binary is already installed
   ansible.builtin.stat:
     path: "{{ quadlets_mkcert_install_dir }}/mkcert"
   register: _mkcert_stat
 
-- name: mkcert | Resolve system architecture label
+- name: Mkcert | Resolve system architecture label
   ansible.builtin.set_fact:
     _mkcert_arch: >-
       {{ 'amd64' if ansible_architecture == 'x86_64'
          else 'arm64' if ansible_architecture == 'aarch64'
          else ansible_architecture }}
 
-- name: mkcert | Download mkcert binary
+- name: Mkcert | Download mkcert binary
   ansible.builtin.get_url:
     url: >-
       https://github.com/FiloSottile/mkcert/releases/download/{{ quadlets_mkcert_version
@@ -32,7 +32,7 @@
   become: true
   when: not _mkcert_stat.stat.exists
 
-- name: "mkcert | Generate certificate for {{ _cert_virtual_host }}"
+- name: "Mkcert | Generate certificate for {{ _cert_virtual_host }}"
   ansible.builtin.command:
     argv:
       - "{{ quadlets_mkcert_install_dir }}/mkcert"
@@ -49,17 +49,11 @@
   become_user: "{{ quadlets_user }}"
 
 # Copy the CA cert directly as root — avoids the sudo-inside-mkcert problem.
-- name: mkcert | Copy local CA to system trust anchors
+- name: Mkcert | Copy local CA to system trust anchors
   ansible.builtin.copy:
     src: "{{ _mkcert_caroot }}/rootCA.pem"
     dest: /etc/pki/ca-trust/source/anchors/mkcert-rootCA.pem
     remote_src: true
     mode: "0644"
   become: true
-  register: _mkcert_ca_copy
-
-- name: mkcert | Update system CA bundle
-  ansible.builtin.command:
-    cmd: update-ca-trust
-  become: true
-  when: _mkcert_ca_copy.changed
+  notify: update ca trust

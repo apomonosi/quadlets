@@ -42,11 +42,11 @@ nav:
   - Home: index.md
   - About: about.md
   - Services:
-    - Audiobookshelf: services/audiobookshelf.md
-    - BookStack: services/bookstack.md
-    - GitLab: services/gitlab.md
-    - Grafana: services/grafana.md
-    - Immich: services/immich.md
-    - Komodo: services/komodo.md
-    - Open WebUI: services/openwebui.md
-    - Vaultwarden: services/vaultwarden.md
+      - Audiobookshelf: services/audiobookshelf.md
+      - BookStack: services/bookstack.md
+      - GitLab: services/gitlab.md
+      - Grafana: services/grafana.md
+      - Immich: services/immich.md
+      - Komodo: services/komodo.md
+      - Open WebUI: services/openwebui.md
+      - Vaultwarden: services/vaultwarden.md

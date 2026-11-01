@@ -17,14 +17,14 @@
 #   2. Complete the pocket-id first-run setup in the browser (create your admin
 #      passkey at {{ quadlets_pocket_id_issuer_url }}).
 
-- name: bootstrap | Resolve effective API key
+- name: Bootstrap | Resolve effective API key
   ansible.builtin.set_fact:
     _pocket_id_effective_api_key: >-
       {{ quadlets_pocket_id_api_key
          if quadlets_pocket_id_api_key | length > 0
          else quadlets_pocket_id_static_api_key }}
 
-- name: bootstrap | Assert an API key is configured
+- name: Bootstrap | Assert an API key is configured
   ansible.builtin.assert:
     that:
       - _pocket_id_effective_api_key | length > 0
@@ -32,7 +32,7 @@
       Set quadlets_pocket_id_static_api_key (preferred) or quadlets_pocket_id_api_key
       before running the pocket_id_bootstrap tag.
 
-- name: bootstrap | Wait for pocket-id to become reachable
+- name: Bootstrap | Wait for pocket-id to become reachable
   ansible.builtin.uri:
     url: "{{ quadlets_pocket_id_issuer_url }}/healthz"
     method: GET
@@ -43,7 +43,7 @@
   retries: 30
   delay: 5
 
-- name: bootstrap | Verify API key by listing OIDC clients
+- name: Bootstrap | Verify API key by listing OIDC clients
   ansible.builtin.uri:
     url: "{{ quadlets_pocket_id_issuer_url }}/api/oidc/clients"
     method: GET
@@ -54,7 +54,7 @@
   register: _pocket_id_key_check
   no_log: true
 
-- name: bootstrap | Confirm API access
+- name: Bootstrap | Confirm API access
   ansible.builtin.debug:
     msg: |
       ============================================================
